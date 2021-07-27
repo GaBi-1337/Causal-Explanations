@@ -58,7 +58,7 @@ def best_trained_RF(X_trn, Y_trn):
     return RandomForestClassifier(n_estimators=max(accuracy, key=accuracy.get), max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
 
 def main():
-    os.chdir("Explain")
+    os.chdir("Explain/data")
 
     (train := pd.read_csv("adult.data", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
     (test := pd.read_csv("adult.test", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
