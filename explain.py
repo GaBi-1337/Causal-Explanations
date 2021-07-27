@@ -51,8 +51,7 @@ class explain(object):
         if self.value(S) != self.value(temp):
             return False
         for j in range(len(S)):
-            if S[j] == 1:
-                temp = S.copy()
+            if S[j] == 1 and j != i:
                 temp[j] = 0 if temp[j] == 1 else 1
                 if self.value(S) != self.value(temp):
                     if quasi:
@@ -67,7 +66,7 @@ class explain(object):
         return True
 
     def sample(self, m, index, seed=0):
-        indices = { "Johnston": lambda S, i: (1 / self._critical_features(S)) if self._minimal_causes(S, i, True) else 0, 
+        indices = { "Johnston": lambda S, i: (1 / self._critical_features(S)) if self._minimal_causes(S, i, quasi = True) else 0, 
                     "Deegan-Packel": lambda S, i: (1 / S.count(1)) if self._minimal_causes(S, i) else 0, 
                     "Holler-Packel": lambda S, i: 1 if self._minimal_causes(S, i) else 0}
         if index not in indices:
