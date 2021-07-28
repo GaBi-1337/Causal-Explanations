@@ -66,18 +66,18 @@ class explain(object):
         return True
 
     def sample(self, m, index, seed=0):
-        indices = { "Johnston": lambda S, i: (1 / self._critical_features(S)) if self._minimal_causes(S, i, quasi = True) else 0, 
+        indices = { "Johnston": lambda S, i: (1 / len(self._critical_features(S))) if self._minimal_causes(S, i, quasi = True) else 0, 
                     "Deegan-Packel": lambda S, i: (1 / S.count(1)) if self._minimal_causes(S, i) else 0, 
                     "Holler-Packel": lambda S, i: 1 if self._minimal_causes(S, i) else 0}
         if index not in indices:
             raise ValueError("Can't compute " + index + " index")
         unbiased_estimate = np.zeros(len(self.N))
         random.seed(seed)            
-        for j in range(m):
+        for _ in range(m):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             for i in self.N:
-                unbiased_estimate += 2*indices[index](S, i)
-        return unbiased_estimate/m
+                unbiased_estimate += 2 * indices[index](S, i)
+        return unbiased_estimate / m
 
         
 def main():
