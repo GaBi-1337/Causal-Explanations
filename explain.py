@@ -48,7 +48,7 @@ class explain(object):
     def _minimal_causes(self, S, i, quasi = False):
         temp = S.copy()
         temp[i] = 0 if temp[i] == 1 else 1
-        if self.value(S) != self.value(temp):
+        if self.value(S) == self.value(temp):
             return False
         for j in range(len(S)):
             if S[j] == 1 and j != i:
