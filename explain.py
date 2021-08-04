@@ -86,7 +86,7 @@ class explain(object):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             for i in self.N:
                 if self._minimal_causes(S, i, quasi = True):
-                    unbiased_estimate = max(unbiased_estimate, 1/S.count(1))
+                    unbiased_estimate[i] = max(unbiased_estimate[i], 1/S.count(1))
         return unbiased_estimate
         
 def main():
