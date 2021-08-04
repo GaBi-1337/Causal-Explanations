@@ -1,37 +1,39 @@
 import numpy as np
 import random
 
+from sklearn.ensemble import RandomForestClassifier
+from data import getData
+
 class explain(object):
-    def __init__(self, model, poi, data):
+    def __init__(self, model, poi, data, k=10):
         self.model = model
         self.poi = poi
         self.data = data
         self.N = set(np.arange(poi.shape[0]))
-        self.k = 0
-        
-    def feasible_recourse_actions(self, k = 10):
         self.k = k
-        sorted_closest_points = np.array(sorted([(np.linalg.norm((self.data[i] - self.poi).toarray()), self.data[i]) for i in range(self.data.shape[0])], key = lambda row: row[0]))[: self.k, 1]
+        
+    def feasible_recourse_actions(self):
+        sorted_closest_points = np.array(sorted([(np.linalg.norm((self.data[i] - self.poi)), self.data[i]) for i in range(self.data.shape[0])], key = lambda row: row[0]))[:, 1]
         k_nearest_points = list()
         k_counter = 0
         for point in sorted_closest_points:
             if self.model.predict(self.poi) != self.model.predict(point):
-                k_nearest_points.append(point)
+                k_nearest_points.append(point.toarray())
                 k_counter += 1
                 if k_counter == self.k:
                     break
         return np.array(k_nearest_points)
 
     def value(self, S):
-        fra = self.feasible_recourse_actions(self.k)
-        for points in fra:
+        fra = self.feasible_recourse_actions()
+        for point in fra:
             xp = list()
-            for i in range(points.shape[0]):
+            for i in range(point[0].shape[0]):
                 if S[i] == 1: 
-                    xp.append(points[i])
+                    xp.append(point[0][i])
                 else:
-                    xp.append(self.poi[i])
-            if self.model.predict(xp) != self.model.predict(self.poi):
+                    xp.append(self.poi[0][i])
+            if self.model.predict([xp]) != self.model.predict(self.poi):
                 return 1
         return 0
     
@@ -88,9 +90,3 @@ class explain(object):
                 if self._minimal_causes(S, i, quasi = True):
                     unbiased_estimate[i] = max(unbiased_estimate[i], 1/S.count(1))
         return unbiased_estimate
-        
-def main():
-    pass
-
-if __name__ == "__main__":
-    main()

@@ -1,8 +1,5 @@
 from math import remainder
 import numpy as np
-import os
-import pandas as pd
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.model_selection import KFold
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -10,9 +7,6 @@ from sklearn.svm import LinearSVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.compose import ColumnTransformer
-import re
 
 def Kfold_cv_accuracy(X_trn, Y_trn, model):
     kf = KFold(n_splits=5, shuffle=True, random_state=0)
@@ -55,18 +49,10 @@ def best_trained_RF(X_trn, Y_trn):
     accuracy = dict()
     for trees in [1, 12, 25, 50, 100, 200]:
         accuracy[trees] = Kfold_cv_accuracy(X_trn, Y_trn, RandomForestClassifier(n_estimators=trees, max_features=None, n_jobs=-1, random_state=0))
+        print(accuracy[trees])
     return RandomForestClassifier(n_estimators=max(accuracy, key=accuracy.get), max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
 
 def main():
-    os.chdir("Explain/data")
-
-    (train := pd.read_csv("adult.data", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
-    (test := pd.read_csv("adult.test", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
-    
-    X_trn = ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(train)[:, :-1])
-    Y_trn = LabelEncoder().fit_transform(np.array(train)[:, -1])
-    X_tst = ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(test)[:, :-1])
-    Y_tst = LabelEncoder().fit_transform(np.array(test)[:, -1])
     
     """for model in models:
         predicted = model(X_trn, Y_trn).predict(X_tst)
