@@ -76,17 +76,21 @@ class explain(object):
         for _ in range(m):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             for i in self.N:
-                unbiased_estimate += 2 * indices[index](S, i)
+                unbiased_estimate[i] += 2 * indices[index](S, i)
         return unbiased_estimate / m
 
+    def responsibility_index(self, m, seed=0):
+        unbiased_estimate = np.zeros(len(self.N))
+        random.seed(seed)            
+        for _ in range(m):
+            S = [random.randint(0, 1) for _ in range(len(self.N))]
+            for i in self.N:
+                if self._minimal_causes(S, i, quasi = True):
+                    unbiased_estimate = max(unbiased_estimate, 1/S.count(1))
+        return unbiased_estimate
         
 def main():
     pass
 
 if __name__ == "__main__":
     main()
-    
-    
-
-
-        
