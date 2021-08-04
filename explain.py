@@ -5,14 +5,14 @@ from sklearn.ensemble import RandomForestClassifier
 from data import getData
 
 class explain(object):
-    def __init__(self, model, poi, data, k=10):
+    def __init__(self, model, poi, data):
         self.model = model
         self.poi = poi
         self.data = data
         self.N = set(np.arange(poi.shape[0]))
-        self.k = k
+        self.fra = None
         
-    def feasible_recourse_actions(self):
+    def feasible_recourse_actions(self, k):
         sorted_closest_points = np.array(sorted([(np.linalg.norm((self.data[i] - self.poi)), self.data[i]) for i in range(self.data.shape[0])], key = lambda row: row[0]))[:, 1]
         k_nearest_points = list()
         k_counter = 0
@@ -20,13 +20,14 @@ class explain(object):
             if self.model.predict(self.poi) != self.model.predict(point):
                 k_nearest_points.append(point.toarray())
                 k_counter += 1
-                if k_counter == self.k:
+                if k_counter == k:
                     break
-        return np.array(k_nearest_points)
+        self.fra = np.array(k_nearest_points)
 
     def value(self, S):
-        fra = self.feasible_recourse_actions()
-        for point in fra:
+        if self.fra == None:
+            raise ValueError("There are no feasible recourse actions")
+        for point in self.fra:
             xp = list()
             for i in range(point[0].shape[0]):
                 if S[i] == 1: 
@@ -44,6 +45,7 @@ class explain(object):
                 temp = S.copy()
                 temp[i] = 0 if temp[i] == 1 else 1
                 if self.value(S) != self.value(temp):
+                    print("hi")
                     χ.add(i)
         return χ
     
@@ -90,3 +92,24 @@ class explain(object):
                 if self._minimal_causes(S, i, quasi = True):
                     unbiased_estimate[i] = max(unbiased_estimate[i], 1/S.count(1))
         return unbiased_estimate
+        
+def main():
+    X_trn, Y_trn, X_tst, Y_tst = getData()
+    model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
+    poi = X_tst[0].toarray().reshape(1,-1)
+    data = X_tst[1: 1000]
+    print(poi)  
+    exp = explain(model, poi, data)
+    print(model.predict(poi))
+    S = [random.randint(0, 1) for _ in range(poi.shape[1])]
+    print(exp._minimal_causes(S, 1, True))
+    """for i in range(poi.shape[1]):
+        print(i)
+        if exp._minimal_causes(S, i, True):
+            print(len(exp._critical_features(S)))
+            #print(S.count(0))"""
+    
+
+
+if __name__ == "__main__":
+    main()
