@@ -13,15 +13,14 @@ class explain(object):
         
     def feasible_recourse_actions(self, data, k):
         sorted_closest_points = np.array(sorted([(np.linalg.norm((data[i] - self.poi)), data[i]) for i in range(data.shape[0])], key = lambda row: row[0]))[:, 1]
-        k_nearest_points = list()
-        k_counter = 0
+        fra = list()
         for point in sorted_closest_points:
             if self.model.predict(self.poi) != self.model.predict(point):
-                k_nearest_points.append(point.toarray())
-                k_counter += 1
-                if k_counter == k:
+                fra.append(point.toarray())
+                k -= 1
+                if k == 0:
                     break
-        self.fra = np.array(k_nearest_points)
+        self.fra = np.array(fra)
         return self
 
     def value(self, S):
