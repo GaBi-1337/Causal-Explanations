@@ -1,4 +1,3 @@
-from _typeshed import Self
 import numpy as np
 import random
 from numpy.random.mtrand import permutation
@@ -13,13 +12,13 @@ class explain(object):
         self.N = set(np.arange(poi.shape[1]))
         self.fra = np.array([])
         
-    def feasible_recourse_actions(self, data, k=100, certainty=0.7, bandwidth= None, density=0.7):
-        sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - self.poi[0]), data[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1]
+    def feasible_recourse_actions(self, data, out, k=100, certainty=0.7, bandwidth=None, density=0.7):
+        sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - self.poi[0]), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, :1]
         fra = list()
         kde = GridSearchCV(KDE(), {'bandwidth': np.logspace(-1, 1, 20)}, cv=KFold(n_splits = 5), n_jobs=-1).fit(data).best_estimator_ if bandwidth == None else KDE(bandwidth=bandwidth).fit(data)
         max_density = max(kde.score_samples(data))
-        for point in sorted_closest_points:
-            if self.model.predict(self.poi) != (clas := self.model.predict([point])) and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= (density * max_density):
+        for point, actual in sorted_closest_points:
+            if self.model.predict(self.poi) != (clas := self.model.predict([point])) and clas == actual  and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= (density * max_density):
                 fra.append(point)
                 k -= 1
                 if k == 0:
