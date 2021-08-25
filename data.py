@@ -12,9 +12,9 @@ def get_Adult_Data():
     (train := pd.read_csv("adult.data", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
     (test := pd.read_csv("adult.test", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
     
-    X_trn = ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(train)[:, :-1])
+    X_trn = np.array([i.toarray()[0] for i in  ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(train)[:, :-1])])
     Y_trn = LabelEncoder().fit_transform(np.array(train)[:, -1])
-    X_tst = ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(test)[:, :-1])
+    X_tst = np.array([i.toarray()[0] for i in ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(test)[:, :-1])])
     Y_tst = LabelEncoder().fit_transform(np.array(test)[:, -1])
     return X_trn, X_tst, Y_trn, Y_tst
 
