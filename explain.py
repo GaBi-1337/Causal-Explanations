@@ -56,7 +56,7 @@ class explain(object):
             if (vos := self.value(S)) == 1 and vos != self.value(temp):
                 return True
         return False
-
+    
     def _is_minimal(self, S):
         temp = S.copy()
         for i in range(len(S)):
@@ -72,11 +72,12 @@ class explain(object):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)        
-        for _ in range(samples):
+        for j in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
-            size_χ = len(self._critical_features(S))
+            χ = self._critical_features(S)
+            size_χ = len(χ)
             for i in self.N:
-                if self._is_quasi_minimal(S, i):
+                if i in χ:
                     unbiased_estimate[i] += (2 / size_χ)
         return unbiased_estimate / samples
     
@@ -84,12 +85,12 @@ class explain(object):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)        
-        for _ in range(samples):
+        for j in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             if self._is_minimal(S):
                 size_S = np.sum(S)
                 for i in self.N:
-                    if self._is_quasi_minimal(S, i):
+                    if S[i] == 1:
                         unbiased_estimate[i] += (2 / size_S)
         return unbiased_estimate / samples
     
@@ -97,11 +98,11 @@ class explain(object):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)        
-        for _ in range(samples):
+        for j in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             if self._is_minimal(S):
                 for i in self.N:
-                    if self._is_quasi_minimal(S, i):
+                    if S[i] == 1:
                         unbiased_estimate[i] += 2
         return unbiased_estimate / samples
 
@@ -109,7 +110,7 @@ class explain(object):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil((np.log(1 / ε) + np.log(len(self.N) / δ)) / ε))
         random.seed(seed)            
-        for _ in range(samples):
+        for j in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             size_S = np.sum(S)
             for i in self.N:
@@ -121,7 +122,7 @@ class explain(object):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)
-        for _ in range(samples):
+        for j in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             for i in self.N:
                 if self._is_quasi_minimal(S, i):
@@ -132,7 +133,7 @@ class explain(object):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)
-        for _ in range(samples):
+        for j in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             size_S = np.sum(S)
             n = len(self.N)
