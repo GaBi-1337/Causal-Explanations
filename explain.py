@@ -74,10 +74,10 @@ class explain(object):
         random.seed(seed)        
         for _ in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
-            χ = self._critical_features(S)
+            size_χ = len(self._critical_features(S))
             for i in self.N:
                 if self._is_quasi_minimal(S, i):
-                    unbiased_estimate[i] += (2 / len(χ))
+                    unbiased_estimate[i] += (2 / size_χ)
         return unbiased_estimate / samples
     
     def Deegan_Packel_index(self, ε, δ, seed=0):
