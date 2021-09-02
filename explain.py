@@ -39,7 +39,7 @@ class explain(object):
         if (str_S := np.array2string(S, separator='')[1:-1]) in self.cache:
             return self.cache[str_S]
         for point in self.fra:
-            xp = (point * S + self.poi[0] * (1 - S)).reshape(1, -1)
+            xp = ((point * S) + (self.poi[0] * (1 - S))).reshape(1, -1)
             if self.model.predict(xp) != self.model.predict(self.poi):
                 self.cache[str_S] = 1
                 return 1
@@ -52,7 +52,8 @@ class explain(object):
             if S[i] != 0:
                 S[i] = 0
                 if self.value(S) == 0:
-                    S[i] = χ[i] = 1
+                    χ[i] = 1
+                S[i] = 1
         return χ
     
     def _is_quasi_minimal(self, S, i):
@@ -61,15 +62,17 @@ class explain(object):
                 if self.value(S) == 0:
                     S[i] = 1
                     return True
+                S[i] = 1
         return False
     
     def _is_minimal(self, S):
         for i in range(len(S)):
-            if S[i] != 0 :
+            if S[i] != 0:
                 S[i] = 0
                 if self.value(S) == 0:
                     S[i] = 1
                 else:
+                    S[i] = 1
                     return False
         return True
     
