@@ -1,7 +1,14 @@
 import numpy as np
 import random
+from itertools import chain, combinations
 from sklearn.neighbors import KernelDensity as KDE
 from sklearn.model_selection import GridSearchCV, KFold
+
+from sklearn.ensemble import RandomForestClassifier
+from Data import get_German_Data, get_Adult_Data
+from sklearn.tree import DecisionTreeClassifier as DTC
+from sklearn.tree import plot_tree
+import matplotlib.pyplot as plt 
 
 class explain(object):
     
@@ -29,84 +36,102 @@ class explain(object):
         if len(self.fra) == 0:
             raise ValueError("There are no feasible recourse actions")
         for point in self.fra:
-            xp = list()
-            for i in range(point.shape[0]):
-                if S[i] == 1: 
-                    xp.append(point[i])
-                else:
-                    xp.append(self.poi[0][i])
-            if self.model.predict([xp]) != self.model.predict(self.poi):
+            xp = (point * S + self.poi[0] * (1 - S)).reshape(1, -1)
+            if self.model.predict(xp) != self.model.predict(self.poi):
                 return 1
         return 0
-    
+     
     def _critical_features(self, S):
-        χ = set()
+        χ = np.zeros(len(self.N))
         for i in range(len(S)):
-            if S[i] == 1:
-                temp = S.copy()
-                temp[i] = 0
-                if (vos := self.value(S)) == 1 and vos != self.value(temp):
-                    χ.add(i)
+            if S[i] != 0 and (vos := self.value(S)) == 1:
+                S[i] = 0
+                if vos != self.value(S):
+                    S[i] = χ[i] = 1
         return χ
     
     def _is_quasi_minimal(self, S, i):
-        if S[i] != 0:
-            temp = S.copy()
-            temp[i] = 0
-            if (vos := self.value(S)) == 1 and vos != self.value(temp):
-                return True
+        if S[i] != 0 and (vos := self.value(S)) == 1: 
+                S[i] = 0
+                if vos != self.value(S):
+                    S[i] = 1
+                    return True
         return False
     
     def _is_minimal(self, S):
-        temp = S.copy()
         for i in range(len(S)):
             if S[i] != 0 :
-                temp[i] = 0
-                if (vos := self.value(S)) == 1 and vos != self.value(temp):
-                    temp[i] = 1
+                if (vos := self.value(S)) == 1:
+                    S[i] = 0
+                    if vos != self.value(S):
+                        S[i] = 1
+                    else:
+                        return False
                 else:
                     return False
         return True
     
-    def Johnston_index(self, ε, δ, seed=0):
+    def Johnston_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)        
         for j in range(samples):
             S = [random.randint(0, 1) for _ in range(len(self.N))]
             χ = self._critical_features(S)
-            size_χ = len(χ)
-            for i in self.N:
-                if i in χ:
-                    unbiased_estimate[i] += (2 / size_χ)
+            unbiased_estimate += (2 * χ / np.sum(χ))
         return unbiased_estimate / samples
     
-    def Deegan_Packel_index(self, ε, δ, seed=0):
+    def Johnston_index(self):
         unbiased_estimate = np.zeros(len(self.N))
-        samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
-        random.seed(seed)        
-        for j in range(samples):
-            S = [random.randint(0, 1) for _ in range(len(self.N))]
-            if self._is_minimal(S):
-                size_S = np.sum(S)
-                for i in self.N:
-                    if S[i] == 1:
-                        unbiased_estimate[i] += (2 / size_S)
-        return unbiased_estimate / samples
-    
-    def Holler_Packel_index(self, ε, δ, seed=0):
-        unbiased_estimate = np.zeros(len(self.N))
-        samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
-        random.seed(seed)        
-        for j in range(samples):
-            S = [random.randint(0, 1) for _ in range(len(self.N))]
-            if self._is_minimal(S):
-                for i in self.N:
-                    if S[i] == 1:
-                        unbiased_estimate[i] += 2
-        return unbiased_estimate / samples
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        for subset in power_set:
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            χ = self._critical_features(S)
+            unbiased_estimate += (χ / np.sum(χ))
+        return unbiased_estimate / np.power(2, len(self.N) - 1)
 
-    def Responsibility_index(self, ε, δ, seed=0):
+    def Deegan_Packel_sample(self, ε, δ, seed=0):
+        unbiased_estimate = np.zeros(len(self.N))
+        samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
+        random.seed(seed)        
+        for j in range(samples):
+            S = [random.randint(0, 1) for _ in range(len(self.N))]
+            if self._is_minimal(S):
+                unbiased_estimate += (2 * S / np.sum(S))
+        return unbiased_estimate / samples
+    
+    def Deegan_Packel_index(self):
+        unbiased_estimate = np.zeros(len(self.N))
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        for subset in power_set:
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            if self._is_minimal(S):
+                unbiased_estimate += (S / np.sum(S))
+        return unbiased_estimate / np.power(2, len(self.N) - 1)
+    
+    def Holler_Packel_sample(self, ε, δ, seed=0):
+        unbiased_estimate = np.zeros(len(self.N))
+        samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
+        random.seed(seed)        
+        for j in range(samples):
+            S = [random.randint(0, 1) for _ in range(len(self.N))]
+            if self._is_minimal(S):
+                unbiased_estimate += 2 * S
+        return unbiased_estimate / samples
+    
+    def Holler_Packel_index(self):
+        unbiased_estimate = np.zeros(len(self.N))
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        for subset in power_set:
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            if self._is_minimal(S):
+                unbiased_estimate += S
+        return unbiased_estimate / np.power(2, len(self.N) - 1)
+
+    def Responsibility_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil((np.log(1 / ε) + np.log(len(self.N) / δ)) / ε))
         random.seed(seed)            
@@ -118,7 +143,20 @@ class explain(object):
                     unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
         return unbiased_estimate
     
-    def Banzhaf_index(self, ε, δ, seed=0):
+    def Responsiblity_index(self):
+        unbiased_estimate = np.zeros(len(self.N))
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        for subset in power_set:
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            if self._is_minimal(S):
+                size_S = np.sum(S)
+                for i in self.N:
+                    if S[i] == 1:
+                        unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
+        return unbiased_estimate 
+    
+    def Banzhaf_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)
@@ -128,8 +166,19 @@ class explain(object):
                 if self._is_quasi_minimal(S, i):
                     unbiased_estimate[i] += 2 
         return unbiased_estimate / samples
+    
+    def Banzhaf_index(self):
+        unbiased_estimate = np.zeros(len(self.N))
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        for subset in power_set:
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            for i in self.N:
+                if self._is_quasi_minimal(S, i):
+                    unbiased_estimate[i] += 1
+        return unbiased_estimate / np.power(2, len(self.N) - 1)
 
-    def Shapley_index(self, ε, δ, seed=0):
+    def Shapley_Shubik_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
         samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         random.seed(seed)
@@ -142,3 +191,61 @@ class explain(object):
                 if self._is_quasi_minimal(S, i):
                     unbiased_estimate[i] +=  addend
         return unbiased_estimate / samples
+    
+    def Shapley_Shubik_index(self):
+        unbiased_estimate = np.zeros(len(self.N))
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        for subset in power_set:
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            size_S = np.sum(S)
+            n = len(self.N)
+            addend = np.math.factorial(size_S - 1) * np.factorial(n - size_S) / np.math.factorial(n)
+            for i in self.N:
+                if self._is_quasi_minimal(S, i):
+                    unbiased_estimate[i] += addend
+        return unbiased_estimate
+
+def main():
+    X_trn, X_tst, Y_trn, Y_tst = get_Adult_Data()
+    model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
+    poi0 = np.array([X_tst[0]])
+    poi1 = np.array([X_tst[3]])
+    print(model.predict(poi0))
+    print(model.predict(poi1))
+    data = np.delete(X_tst[1:], 3, 0)
+    out = np.delete(Y_tst[1:], 3, 0)
+    ε = 1e-2
+    δ = 1e-4
+    print("poi0")
+    exp = explain(model, poi0).feasible_recourse_actions(data, out, 500, 0.7, bandwidth=None, density=0.7)
+    print("J:")
+    print(exp.Johnston_sample(ε, δ))
+    print("D:")
+    print(exp.Deegan_Packel_sample(ε, δ))
+    print("H:")
+    print(exp.Holler_Packel_sample(ε, δ))
+    print("R:")
+    print(exp.Responsibility_sample(ε, δ))
+    print("B:")
+    print(exp.Banzhaf_sample(ε, δ))
+    print("S:")
+    print(exp.Shapley_sample(ε, δ))
+    print("poi1")
+    exp = explain(model, poi1).feasible_recourse_actions(data, out, 500, 0.7, bandwidth=None, density=0.7)
+    print("J:")
+    print(exp.Johnston_sample(ε, δ))
+    print("D:")
+    print(exp.Deegan_Packel_sample(ε, δ))
+    print("H:")
+    print(exp.Holler_Packel_sample(ε, δ))
+    print("R:")
+    print(exp.Responsibility_sample(ε, δ))
+    print("B:")
+    print(exp.Banzhaf_sample(ε, δ))
+    print("S:")
+    print(exp.Shapley_sample(ε, δ))
+
+
+if __name__ == "__main__":
+    main()
