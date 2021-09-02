@@ -17,6 +17,7 @@ class explain(object):
         self.poi = poi
         self.N = set(np.arange(poi.shape[1]))
         self.fra = np.array([])
+        self.cache = dict()
         
     def feasible_recourse_actions(self, data, out, k=100, certainty=0.7, bandwidth=None, density=0.7):
         sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - self.poi[0]), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1:]
@@ -35,25 +36,29 @@ class explain(object):
     def value(self, S):
         if len(self.fra) == 0:
             raise ValueError("There are no feasible recourse actions")
+        if (str_S := np.array2string(S, separator='')[1:-1]) in self.cache:
+            return self.cache[str_S]
         for point in self.fra:
             xp = (point * S + self.poi[0] * (1 - S)).reshape(1, -1)
             if self.model.predict(xp) != self.model.predict(self.poi):
+                self.cache[str_S] = 1
                 return 1
+            self.cache[str_S] = 0
         return 0
      
     def _critical_features(self, S):
         χ = np.zeros(len(self.N))
         for i in range(len(S)):
-            if S[i] != 0 and (vos := self.value(S)) == 1:
+            if S[i] != 0:
                 S[i] = 0
-                if vos != self.value(S):
+                if self.value(S) == 0:
                     S[i] = χ[i] = 1
         return χ
     
     def _is_quasi_minimal(self, S, i):
-        if S[i] != 0 and (vos := self.value(S)) == 1: 
+        if S[i] != 0: 
                 S[i] = 0
-                if vos != self.value(S):
+                if self.value(S) == 0:
                     S[i] = 1
                     return True
         return False
@@ -61,12 +66,9 @@ class explain(object):
     def _is_minimal(self, S):
         for i in range(len(S)):
             if S[i] != 0 :
-                if (vos := self.value(S)) == 1:
-                    S[i] = 0
-                    if vos != self.value(S):
-                        S[i] = 1
-                    else:
-                        return False
+                S[i] = 0
+                if self.value(S) == 0:
+                    S[i] = 1
                 else:
                     return False
         return True
@@ -232,7 +234,7 @@ def main():
     print("B:")
     print(exp.Banzhaf_sample(ε, δ))
     print("S:")
-    print(exp.Shapley_sample(ε, δ))
+    print(exp.Shapley_Shubik_sample(ε, δ))
     print("poi1")
     exp = explain(model, poi1).feasible_recourse_actions(data, out, 5, 0.7, bandwidth=None, density=0.7)
     print("J:")
@@ -246,7 +248,7 @@ def main():
     print("B:")
     print(exp.Banzhaf_sample(ε, δ))
     print("S:")
-    print(exp.Shapley_sample(ε, δ))
+    print(exp.Shapley_Shubik_sample(ε, δ))
 
 
 if __name__ == "__main__":
