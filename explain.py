@@ -1,6 +1,5 @@
 import numpy as np
 from itertools import chain, combinations
-from numpy.core.fromnumeric import size
 from sklearn.neighbors import KernelDensity as KDE
 from sklearn.model_selection import GridSearchCV, KFold
 
@@ -47,29 +46,32 @@ class explain(object):
         return 0
      
     def _critical_features(self, S):
-        χ = np.zeros(len(self.N))
+        χ = np.zeros(len(self.N), dtype=int)
         for i in range(len(S)):
             if S[i] != 0:
+                vos = self.value(S)
                 S[i] = 0
-                if self.value(S) == 0:
+                if vos == 1 and self.value(S) == 0:
                     χ[i] = 1
                 S[i] = 1
         return χ
     
     def _is_quasi_minimal(self, S, i):
-        if S[i] != 0: 
-                S[i] = 0
-                if self.value(S) == 0:
-                    S[i] = 1
-                    return True
+        if S[i] != 0:
+            vos = self.value(S)
+            S[i] = 0
+            if vos == 1 and self.value(S) == 0:
                 S[i] = 1
+                return True
+            S[i] = 1
         return False
     
     def _is_minimal(self, S):
         for i in range(len(S)):
             if S[i] != 0:
+                vos = self.value(S)
                 S[i] = 0
-                if self.value(S) == 0:
+                if vos == 1 and self.value(S) == 0:
                     S[i] = 1
                 else:
                     S[i] = 1
