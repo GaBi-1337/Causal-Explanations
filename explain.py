@@ -16,7 +16,9 @@ class explain(object):
         self.poi = poi
         self.N = set(np.arange(poi.shape[1]))
         self.fra = np.array([])
-        self.cache = dict()
+        self.value_cache = dict()
+        self.critical_features_cache = dict()
+        self.minimality_cache = dict()
         
     def feasible_recourse_actions(self, data, out, k=100, certainty=0.7, bandwidth=None, density=0.7):
         sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - self.poi[0]), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1:]
@@ -35,17 +37,19 @@ class explain(object):
     def value(self, S):
         if len(self.fra) == 0:
             raise ValueError("There are no feasible recourse actions")
-        if (str_S := np.array2string(S, separator='')[1:-1]) in self.cache:
-            return self.cache[str_S]
+        if (str_S := np.array2string(S, separator='')[1:-1]) in self.value_cache:
+            return self.value_cache[str_S]
         for point in self.fra:
             xp = ((point * S) + (self.poi[0] * (1 - S))).reshape(1, -1)
             if self.model.predict(xp) != self.model.predict(self.poi):
-                self.cache[str_S] = 1
+                self.value_cache[str_S] = 1
                 return 1
-            self.cache[str_S] = 0
+            self.value_cache[str_S] = 0
         return 0
      
     def _critical_features(self, S):
+        if (str_S := np.array2string(S, separator='')[1:-1]) in self.critical_features_cache:
+            return self.critical_features_cache[str_S]
         χ = np.zeros(len(self.N), dtype=int)
         for i in range(len(S)):
             if S[i] != 0:
@@ -54,6 +58,7 @@ class explain(object):
                 if vos == 1 and self.value(S) == 0:
                     χ[i] = 1
                 S[i] = 1
+        self.critical_features_cache[str_S] = χ
         return χ
     
     def _is_quasi_minimal(self, S, i):
@@ -67,6 +72,8 @@ class explain(object):
         return False
     
     def _is_minimal(self, S):
+        if (str_S := np.array2string(S, separator='')[1:-1]) in self.minimality_cache:
+            return self.minimality_cache[str_S]
         for i in range(len(S)):
             if S[i] != 0:
                 vos = self.value(S)
@@ -75,7 +82,9 @@ class explain(object):
                     S[i] = 1
                 else:
                     S[i] = 1
+                    self.minimality_cache[str_S] = False
                     return False
+        self.minimality_cache[str_S] = True
         return True
     
     def Johnston_sample(self, ε, δ, seed=0):
