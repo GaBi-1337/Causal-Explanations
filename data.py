@@ -26,3 +26,12 @@ def get_German_Data(seed=0):
     Y = LabelEncoder().fit_transform(np.array(data)[:, -1])
 
     return train_test_split(X, Y, test_size=0.33, random_state=seed)
+
+def get_ACS_Data(seed=0):
+    os.chdir("data")
+    data = np.array(pd.read_csv("acs13.csv"))
+
+    X = np.array(data[:, :-1])
+    Y = np.array(data[:, -1])
+    
+    return train_test_split(X, Y, test_size=0.33, random_state=seed)

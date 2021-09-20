@@ -1,13 +1,14 @@
+from operator import add
 import numpy as np
 from itertools import chain, combinations
 from sklearn.neighbors import KernelDensity as KDE
 from sklearn.model_selection import GridSearchCV, KFold
 
 from sklearn.ensemble import RandomForestClassifier
-from Data import get_German_Data, get_Adult_Data
+from Data import get_German_Data, get_Adult_Data, get_ACS_Data
 from sklearn.tree import DecisionTreeClassifier as DTC
 from sklearn.tree import plot_tree
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 
 class explain(object):
     
@@ -161,7 +162,7 @@ class explain(object):
                     unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
         return unbiased_estimate
     
-    def Responsiblity_index(self):
+    def Responsibility_index(self):
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
         for subset in power_set:
@@ -180,9 +181,7 @@ class explain(object):
         np.random.seed(seed)
         samples = np.random.randint(0, 2, (num_samples, len(self.N)))
         for S in samples:
-            for i in self.N:
-                if self._is_quasi_minimal(S, i):
-                    unbiased_estimate[i] += 2 
+            unbiased_estimate += np.vectorize(lambda i, S=S: 2 if self._is_quasi_minimal(S, i) else 0)(np.arange(len(self.N)))
         return unbiased_estimate / num_samples
     
     def Banzhaf_index(self):
@@ -191,9 +190,7 @@ class explain(object):
         for subset in power_set:
             S = np.zeros(len(self.N))
             S[list(subset)] = 1
-            for i in self.N:
-                if self._is_quasi_minimal(S, i):
-                    unbiased_estimate[i] += 1
+            unbiased_estimate += np.vectorize(lambda i, S=S: 1 if self._is_quasi_minimal(S, i) else 0)(np.arange(len(self.N)))
         return unbiased_estimate / np.power(2, len(self.N) - 1)
 
     def Shapley_Shubik_sample(self, ε, δ, seed=0):
@@ -201,36 +198,38 @@ class explain(object):
         num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
         np.random.seed(seed)
         samples = np.random.randint(0, 2, (num_samples, len(self.N)))
+        n = len(self.N)
+        n_fact = np.math.factorial(n)
+        two_to_n = np.power(2., n)
         for S in samples:
-            size_S = np.sum(S)
-            n = len(self.N)
-            addend = np.power(2, n) * np.math.factorial(n - size_S) * np.math.factorial(size_S - 1) / np.math.factorial(n)  
-            for i in self.N:
-                if self._is_quasi_minimal(S, i):
-                    unbiased_estimate[i] +=  addend
+            if (size_S := np.sum(S)) != 0:
+                addend = two_to_n * np.math.factorial(size_S - 1) * np.math.factorial(n - size_S) / n_fact
+                for i in self.N:
+                    if self._is_quasi_minimal(S, i):
+                        unbiased_estimate[i] += addend 
         return unbiased_estimate / num_samples
     
     def Shapley_Shubik_index(self):
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        n = len(self.N)
+        n_fact = np.math.factorial(n)
         for subset in power_set:
             S = np.zeros(len(self.N))
             S[list(subset)] = 1
-            size_S = np.sum(S)
-            n = len(self.N)
-            addend = np.math.factorial(size_S - 1) * np.factorial(n - size_S) / np.math.factorial(n)
-            for i in self.N:
-                if self._is_quasi_minimal(S, i):
-                    unbiased_estimate[i] += addend
+            if (size_S := int(np.sum(S))) != 0:
+                addend = np.math.factorial(size_S - 1) * np.math.factorial(n - size_S) / n_fact
+                for i in self.N:
+                    if self._is_quasi_minimal(S, i):
+                        unbiased_estimate[i] += addend
         return unbiased_estimate
 
 def main():
     X_trn, X_tst, Y_trn, Y_tst = get_Adult_Data()
-    model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
+    model = DTC(max_depth=3, random_state=0).fit(X_trn, Y_trn)
+    print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
     poi0 = np.array([X_tst[0]])
     poi1 = np.array([X_tst[3]])
-    print(model.predict(poi0))
-    print(model.predict(poi1))
     data = np.delete(X_tst[1:], 3, 0)
     out = np.delete(Y_tst[1:], 3, 0)
     ε = 1e-2
