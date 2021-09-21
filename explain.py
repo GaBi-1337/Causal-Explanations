@@ -25,9 +25,9 @@ class explain(object):
         sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - self.poi[0]), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1:]
         fra = list()
         kde = GridSearchCV(KDE(), {'bandwidth': np.logspace(-1, 1, 20)}, cv=KFold(n_splits = 5), n_jobs=-1).fit(data).best_estimator_ if bandwidth == None else KDE(bandwidth=bandwidth).fit(data)
-        max_density = max(kde.score_samples(data))
+        density_thresh = density * max(kde.score_samples(data))
         for point, actual in sorted_closest_points:
-            if self.model.predict(self.poi) != (clas := self.model.predict([point])) and clas == actual and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= (density * max_density):
+            if self.model.predict(self.poi) != (clas := self.model.predict([point])) and clas == actual and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= density_thresh:
                 fra.append(point)
                 k -= 1
                 if k == 0:
@@ -226,16 +226,31 @@ class explain(object):
 
 def main():
     X_trn, X_tst, Y_trn, Y_tst = get_Adult_Data()
-    model = DTC(max_depth=3, random_state=0).fit(X_trn, Y_trn)
+    model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
     print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
     poi0 = np.array([X_tst[0]])
     poi1 = np.array([X_tst[3]])
-    data = np.delete(X_tst[1:], 3, 0)
-    out = np.delete(Y_tst[1:], 3, 0)
+    data = np.delete(X_tst[1:], 3, axis=0)
+    out = np.delete(Y_tst[1:], 3, axis=0)
+    print(model.predict(poi0), model.predict(poi1))
     ε = 1e-2
     δ = 1e-4
     print("poi0")
-    exp = explain(model, poi0).feasible_recourse_actions(data, out, 5, 0.7, bandwidth=None, density=0.7)
+    exp = explain(model, poi0).feasible_recourse_actions(data, out, 5)
+    print("index:")
+    print("J:")
+    print(exp.Johnston_index())
+    print("D:")
+    print(exp.Deegan_Packel_index())
+    print("H:")
+    print(exp.Holler_Packel_index())
+    print("R:")
+    print(exp.Responsibility_index())
+    print("B:")
+    print(exp.Banzhaf_index())
+    print("S:")
+    print(exp.Shapley_Shubik_index())
+    print("sample:")
     print("J:")
     print(exp.Johnston_sample(ε, δ))
     print("D:")
@@ -249,7 +264,21 @@ def main():
     print("S:")
     print(exp.Shapley_Shubik_sample(ε, δ))
     print("poi1")
-    exp = explain(model, poi1).feasible_recourse_actions(data, out, 5, 0.7, bandwidth=None, density=0.7)
+    exp = explain(model, poi1).feasible_recourse_actions(data, out, 5)
+    print("index:")
+    print("J:")
+    print(exp.Johnston_index())
+    print("D:")
+    print(exp.Deegan_Packel_index())
+    print("H:")
+    print(exp.Holler_Packel_index())
+    print("R:")
+    print(exp.Responsibility_index())
+    print("B:")
+    print(exp.Banzhaf_index())
+    print("S:")
+    print(exp.Shapley_Shubik_index())
+    print("sample:")
     print("J:")
     print(exp.Johnston_sample(ε, δ))
     print("D:")
@@ -262,7 +291,6 @@ def main():
     print(exp.Banzhaf_sample(ε, δ))
     print("S:")
     print(exp.Shapley_Shubik_sample(ε, δ))
-
 
 if __name__ == "__main__":
     main()
