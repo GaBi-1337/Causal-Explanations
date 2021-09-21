@@ -1,5 +1,6 @@
 from math import remainder
 import numpy as np
+from Data import get_German_Data, get_Adult_Data, get_ACS_Data
 from sklearn.model_selection import KFold
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -49,17 +50,23 @@ def best_trained_RF(X_trn, Y_trn):
     accuracy = dict()
     for trees in [1, 12, 25, 50, 100, 200]:
         accuracy[trees] = Kfold_cv_accuracy(X_trn, Y_trn, RandomForestClassifier(n_estimators=trees, max_features=None, n_jobs=-1, random_state=0))
-        print(accuracy[trees])
     return RandomForestClassifier(n_estimators=max(accuracy, key=accuracy.get), max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
 
 def main():
-    
-    """for model in models:
-        predicted = model(X_trn, Y_trn).predict(X_tst)
-        models[model] = np.mean([1 if predicted[y] == Y_tst[y] else 0 for y in range(len(predicted))])
-    
-    print(models.values())"""
-    
+    X_trn, X_tst, Y_trn, Y_tst = get_Adult_Data()
+    model = best_trained_RF(X_trn, Y_trn)
+    print("Adult data set accuracy:")
+    print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
+    print()
+    X_trn, X_tst, Y_trn, Y_tst = get_German_Data()
+    model = best_trained_RF(X_trn, Y_trn)
+    print("German data set accuracy:")
+    print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
+    X_trn, X_tst, Y_trn, Y_tst = get_ACS_Data()
+    model = best_trained_RF(X_trn, Y_trn)
+    print("ACS data set accuracy:")
+    print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
+    print()
 
 if __name__ == "__main__":
     main()
