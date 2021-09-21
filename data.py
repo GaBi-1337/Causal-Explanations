@@ -5,9 +5,9 @@ import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 
+os.chdir("data")
 
 def get_Adult_Data():
-    os.chdir("data")
 
     (train := pd.read_csv("adult.data", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
     (test := pd.read_csv("adult.test", header=None, na_values= ' ?').dropna()).drop([2, 3, 13], axis=1, inplace=True)
@@ -19,7 +19,6 @@ def get_Adult_Data():
     return X_trn, X_tst, Y_trn, Y_tst
 
 def get_German_Data(seed=0):
-    os.chdir("data")
     data = pd.read_csv("german.data", sep=" ")
 
     X = ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [0, 2, 3, 5, 6, 8, 9, 11, 13, 14, 16, 18, 19])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(data)[:, :-1])
@@ -28,7 +27,6 @@ def get_German_Data(seed=0):
     return train_test_split(X, Y, test_size=0.33, random_state=seed)
 
 def get_ACS_Data(seed=0):
-    os.chdir("data")
     data = np.array(pd.read_csv("acs13.csv"))
 
     X = np.array(data[:, :-1])

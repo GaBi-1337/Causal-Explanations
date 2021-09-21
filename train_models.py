@@ -62,11 +62,11 @@ def main():
     model = best_trained_RF(X_trn, Y_trn)
     print("German data set accuracy:")
     print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
+    print()
     X_trn, X_tst, Y_trn, Y_tst = get_ACS_Data()
     model = best_trained_RF(X_trn, Y_trn)
     print("ACS data set accuracy:")
     print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
-    print()
 
 if __name__ == "__main__":
     main()
