@@ -104,9 +104,9 @@ def _is_minimal(S):
 
 @cuda.jit(device=True)
 def Deegan_Packel_sample(n, estimate, num_samples):
-    j = cuda.BlockIdx.x
-        
-        if self._is_minimal(S) and (size_S) != 0:
+    idx = cuda.BlockIdx.x*cuda.blockDim.x + cuda.threadIdx.x
+    
+            if self._is_minimal(S) and (size_S) != 0:
             unbiased_estimate += (2 * S / size_S)
     return unbiased_estimate / num_samples
 
