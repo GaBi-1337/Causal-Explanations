@@ -1,6 +1,6 @@
-from math import remainder
+
 import numpy as np
-from Data import get_German_Data, get_Adult_Data, get_ACS_Data
+from data import get_German_Data, get_Adult_Data, get_ACS_Data
 from sklearn.model_selection import KFold
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
