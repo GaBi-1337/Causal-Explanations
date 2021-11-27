@@ -1,11 +1,12 @@
 from operator import add
 import numpy as np
 from itertools import chain, combinations
+from numpy.random import pareto
 from sklearn.neighbors import KernelDensity as KDE
 from sklearn.model_selection import GridSearchCV, KFold
 
 from sklearn.ensemble import RandomForestClassifier
-from data import get_German_Data, get_Adult_Data, get_ACS_Data
+from data import get_German_Data, get_Adult_Data, get_ACS_Data, Representer
 from sklearn.tree import DecisionTreeClassifier as DTC
 from sklearn.tree import plot_tree
 import matplotlib.pyplot as plt
@@ -15,59 +16,57 @@ import pandas as pd
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 
-def Node_Models(X, nodes, edges, seed=0):
-    node_f = dict()
-    sources = set()
-    for node in nodes:
-        if node not in set([edge[1] for edge in edges]):
-            sources.add(node)
+class Casual_Graph():
+    def __init__(self, nodes, edges, mapper):
+        self.nodes = nodes
+        self.edges = edges
+        self.mapper = mapper
+        self.node_f = dict()
+        self.sources = set()
+        for node in self.nodes:
+            if node not in set([edge[1] for edge in self.edges]):
+                self.sources.add(node)
+        for node in nodes:
+            if node not in self.sources:
+                parents = self.get_parents(node)
+                data = self.mapper.get_data(parents, node)
+                X_train, X_test, Y_train, Y_test = train_test_split(data[: , : -1], data[: , -1], test_size=0.33, shuffle=False)
+                xgb_train = xgboost.DMatrix(X_train, label=Y_train)
+                xgb_test = xgboost.DMatrix(X_test, label=Y_test)
+                if node in self.mapper.categorical:
+                    num_class = len(np.unique(data[:, -1]))
+                    params = {
+                        "eta": 0.002,
+                        "max_depth": 3,
+                        'objective': 'multi:softprob',
+                        'eval_metric': 'mlogloss',
+                        'num_class': num_class,
+                        "subsample": 0.5
+                    }
+                else:
+                    params = {
+                    "eta": 0.002,
+                    "max_depth": 3,
+                    'objective': 'reg:squarederror',
+                    'eval_metric': 'rmse',
+                    "subsample": 0.5
+                }
+                self.node_f[node] = xgboost.train(params, xgb_train, 500, evals = [(xgb_test, "test")], verbose_eval=100)
     
-    def get_parents(node):
+    def get_parents(self, node):
         parents = set()
-        for edge in edges:
+        for edge in self.edges:
             if edge[1] == node:
                 parents.add(edge[0])
         return parents
-
-    for node in nodes:
-        if node not in sources:
-            parents = get_parents(node)
-            X_train, X_test, y_train, y_test = train_test_split(X[list(parents)], np.array(X[node]), test_size=0.2, random_state=seed)
-            X_train = X_train.rename(columns={key: value for value, key in enumerate(X_train.columns)})
-            X_test = X_test.rename(columns={key: value for value, key in enumerate(X_test.columns)})
-            categorical = set(X_train.columns) - set(X_train._get_numeric_data().columns)
-            X_train = ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [feature for feature in X_train.columns if feature in categorical])], remainder='passthrough', n_jobs=-1).fit_transform(X_train)
-            X_test = ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [feature for feature in X_test.columns if feature in categorical])], remainder='passthrough', n_jobs=-1).fit_transform(X_test)
-            y_train = LabelEncoder().fit_transform(np.array(y_train))
-            y_test = LabelEncoder().fit_transform(np.array(y_test))
-            xgb_train = xgboost.DMatrix(X_train, label=y_train)
-            xgb_test = xgboost.DMatrix(X_test, label=y_test)
-            if node in categorical:
-                num_class = len(np.unique(X[node]))
-                params = {
-                    "eta": 0.002,
-                    "max_depth": 3,
-                    'objective': 'multi:softprob',
-                    'eval_metric': 'mlogloss',
-                    'num_class': num_class,
-                    "subsample": 0.5
-                }
-            else:
-                params = {
-                "eta": 0.002,
-                "max_depth": 3,
-                'objective': 'reg:squarederror',
-                'eval_metric': 'rmse',
-                "subsample": 0.5
-            }
-            node_f[node] = xgboost.train(params, xgb_train, 500, evals = [(xgb_test, "test")], verbose_eval=100)
-    for node in sources:
-        node_f[node] = None
-    return node_f
+    
+    def predict(self, node, point):
+        prediction = self.node_f[node].predict(xgboost.DMatrix(point.reshape(1, -1)))[0]
+        return np.argmax(prediction) if node in self.mapper.categorical else prediction
 
 class explain(object):
     
-    def __init__(self, model, poi, node_f):
+    def __init__(self, model, poi, casual_graph, mapper):
         self.model = model
         self.poi = poi
         self.N = set(np.arange(poi.shape[1]))
@@ -75,15 +74,17 @@ class explain(object):
         self.value_cache = dict()
         self.critical_features_cache = dict()
         self.minimality_cache = dict()
-        self.node_f = node_f
+        self.cg = casual_graph
+        self.mapper = mapper
         
     def feasible_recourse_actions(self, data, out, k=100, certainty=0.7, bandwidth=None, density=0.7):
-        sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - self.poi[0]), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1:]
+        poi = self.mapper.point_transform(self.poi)
+        sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - poi), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1:]
         fra = list()
         kde = GridSearchCV(KDE(), {'bandwidth': np.logspace(-1, 1, 20)}, cv=KFold(n_splits = 5), n_jobs=-1).fit(data).best_estimator_ if bandwidth == None else KDE(bandwidth=bandwidth).fit(data)
         density_thresh = density * max(kde.score_samples(data))
         for point, actual in sorted_closest_points:
-            if self.model.predict(self.poi) != (clas := self.model.predict([point])) and clas == actual and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= density_thresh:
+            if self.model.predict(poi.reshape(1, -1)) != (clas := self.model.predict([point])) and clas == actual and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= density_thresh:
                 fra.append(point)
                 k -= 1
                 if k == 0:
@@ -91,9 +92,23 @@ class explain(object):
         self.fra = np.array(fra)
         return self
     
-
-    def _fit_missing_nodes(self, changed_nodes):
-        pass
+    def _get_xp(self, S, point):
+        newPoint = []
+        point = self.mapper.point_inverse(point)
+        changed = set()
+        for idx, val in enumerate(S):
+            if val == 1:
+                newPoint.append(point[idx])
+                changed.add(idx)
+            else:
+                newPoint.append(self.poi[idx])
+        for idx, val in enumerate(S):
+            if val == 0:
+                parents = self.cg.get_parents(idx)
+                if bool(parents & changed) and idx not in changed:
+                    prediction = self.cg.predict(idx, self.mapper.point_transform(point[sorted(parents)], parents))
+                    newPoint[idx] = self.mapper.le_inverse(prediction, idx) if idx in self.mapper.categorical() else prediction
+        return self.mapper.point_transform(np.array(newPoint))
 
     def value(self, S):
         if len(self.fra) == 0:
@@ -101,7 +116,7 @@ class explain(object):
         if (str_S := np.array2string(S, separator='')[1:-1]) in self.value_cache:
             return self.value_cache[str_S]
         for point in self.fra:
-            xp = ((point * S) + (self.poi[0] * (1 - S))).reshape(1, -1)
+            xp = self._get_xp(S, point).reshape(1, -1)
             if self.model.predict(xp) != self.model.predict(self.poi):
                 self.value_cache[str_S] = 1
                 return 1
@@ -286,11 +301,16 @@ class explain(object):
 
 def main():
     train = pd.read_csv("adult.data", header=None, na_values= ' ?')
+    test = pd.read_csv("adult.test", header=None, na_values= ' ?') 
     train = train.dropna()
-    train.drop([2, 3, 13, 14], axis=1, inplace=True)
-    train = train.rename(columns={key: value for value, key in enumerate(train.columns)})
-    node_f = Node_Models(train, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, {(0, 2), (0,3), (0, 4), (1, 5), (1, 3), (1, 6), (3, 7), (6, 8), (5, 9), (6, 10)})
-    print(node_f)
+    test = test.dropna()
+    train.drop([2, 3, 13], axis=1, inplace=True)
+    test.drop([2, 3, 13], axis=1, inplace=True)
+    data = pd.concat([train, test], ignore_index=True)
+    rep = Representer(data.rename(columns={key: value for value, key in enumerate(data.columns)}))
+    cg = Casual_Graph({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, {(0, 2), (0,3), (0, 4), (1, 5), (1, 3), (1, 6), (3, 7), (6, 8), (5, 9), (6, 10)}, rep)
+    point = rep.get_data(cg.get_parents(7), 7, 1)
+    point = point[:, :-1]
 
 
 if __name__ == "__main__":
