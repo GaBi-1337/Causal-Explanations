@@ -1,4 +1,5 @@
 from operator import add
+from joblib.logger import short_format_time
 import numpy as np
 from itertools import chain, combinations
 from numpy.random import pareto
@@ -69,7 +70,7 @@ class explain(object):
     def __init__(self, model, poi, casual_graph, mapper):
         self.model = model
         self.poi = poi
-        self.N = set(np.arange(poi.shape[1]))
+        self.N = set(np.arange(poi.shape[0]))
         self.fra = np.array([])
         self.value_cache = dict()
         self.critical_features_cache = dict()
@@ -78,13 +79,13 @@ class explain(object):
         self.mapper = mapper
         
     def feasible_recourse_actions(self, data, out, k=100, certainty=0.7, bandwidth=None, density=0.7):
-        poi = self.mapper.point_transform(self.poi)
-        sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - poi), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1:]
+        self.poiohe = self.mapper.point_transform(self.poi)
+        sorted_closest_points = np.array(sorted([(np.linalg.norm(data[i] - self.poiohe), data[i], out[i]) for i in range(data.shape[0])], key = lambda row: row[0]), dtype=object)[:, 1:]
         fra = list()
         kde = GridSearchCV(KDE(), {'bandwidth': np.logspace(-1, 1, 20)}, cv=KFold(n_splits = 5), n_jobs=-1).fit(data).best_estimator_ if bandwidth == None else KDE(bandwidth=bandwidth).fit(data)
         density_thresh = density * max(kde.score_samples(data))
         for point, actual in sorted_closest_points:
-            if self.model.predict(poi.reshape(1, -1)) != (clas := self.model.predict([point])) and clas == actual and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= density_thresh:
+            if self.model.predict(self.poiohe.reshape(1, -1)) != (clas := self.model.predict([point])) and clas == actual and self.model.predict_proba([point])[0][clas] >= certainty and np.exp(kde.score_samples([point])[0]) >= density_thresh:
                 fra.append(point)
                 k -= 1
                 if k == 0:
@@ -106,8 +107,9 @@ class explain(object):
             if val == 0:
                 parents = self.cg.get_parents(idx)
                 if bool(parents & changed) and idx not in changed:
-                    prediction = self.cg.predict(idx, self.mapper.point_transform(point[sorted(parents)], parents))
-                    newPoint[idx] = self.mapper.le_inverse(prediction, idx) if idx in self.mapper.categorical() else prediction
+                    parents = sorted(parents)
+                    prediction = self.cg.predict(idx, self.mapper.point_transform(point[parents], parents))
+                    newPoint[idx] = self.mapper.le_inverse(prediction, idx) if idx in self.mapper.categorical else prediction
         return self.mapper.point_transform(np.array(newPoint))
 
     def value(self, S):
@@ -117,7 +119,7 @@ class explain(object):
             return self.value_cache[str_S]
         for point in self.fra:
             xp = self._get_xp(S, point).reshape(1, -1)
-            if self.model.predict(xp) != self.model.predict(self.poi):
+            if self.model.predict(xp) != self.model.predict(self.poiohe.reshape(1, -1)):
                 self.value_cache[str_S] = 1
                 return 1
             self.value_cache[str_S] = 0
@@ -309,8 +311,18 @@ def main():
     data = pd.concat([train, test], ignore_index=True)
     rep = Representer(data.rename(columns={key: value for value, key in enumerate(data.columns)}))
     cg = Casual_Graph({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, {(0, 2), (0,3), (0, 4), (1, 5), (1, 3), (1, 6), (3, 7), (6, 8), (5, 9), (6, 10)}, rep)
-    point = rep.get_data(cg.get_parents(7), 7, 1)
-    point = point[:, :-1]
+    data = rep.get_data()
+    X = data[:, : -1]
+    Y = data[:, -1]
+    X_trn, X_tst, Y_trn, Y_tst = train_test_split(X, Y, test_size=0.333, shuffle=False)
+    model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
+    print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
+    poi = rep.point_inverse(X_tst[0])
+    data = X_tst[1:]
+    out = Y_tst[1:]
+    exp = explain(model, poi, cg, rep).feasible_recourse_actions(data, out, 5)
+    print(exp.Johnston_sample(1e-1, 1e-2))
+
 
 
 if __name__ == "__main__":

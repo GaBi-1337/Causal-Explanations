@@ -11,12 +11,13 @@ class Representer:
 
     def __init__(self, data):
         self.Data = data
+        self.columns = sorted(data.columns)
         self.categorical = list(set(data.columns) - set(data._get_numeric_data()))
         self.mappings = dict()
         self.newData = pd.DataFrame(np.zeros(len(data)), columns=['temp'])
         self.onehot = dict()
         self.label = dict()
-        for col in data.columns:
+        for col in self.columns:
             if col in self.categorical:
                 values = set(np.array(data[col]))
                 representation = list()
@@ -64,15 +65,17 @@ class Representer:
     
     def point_transform(self, vector, X=None, Y=None):
         newPoint = []
-        for col in self.Data.columns[: -1]:
+        idx = 0
+        for col in self.columns[: -1]:
             if X is None or col in X:
                 if col in self.categorical:
-                    newPoint += list(self.ohe_transform(vector[col], col))
+                    newPoint += list(self.ohe_transform(vector[idx], col))
                 else:
-                    newPoint += [vector[col]]
+                    newPoint += [vector[idx]]
+                idx += 1
         if Y != None:
-            newPoint += [self.le_transform(vector[Y], Y)]
-        return np.array(newPoint, dtype=int)
+            newPoint += [self.le_transform(vector[idx], Y)]
+        return np.array(np.array(newPoint, dtype=float), dtype=int)
     
     def ohe_inverse(self, vector, column):
         for value in self.mappings[column]:
@@ -87,7 +90,7 @@ class Representer:
     def point_inverse(self, vector, y_present=False):
         newPoint = []
         offset = 0 
-        for col in self.Data.columns[: -1]:
+        for col in self.columns[: -1]:
             if col in self.categorical:
                 col_len = len(self.mappings[col][0][1])
                 newPoint += [self.ohe_inverse(vector[col + offset: col + offset +  col_len], col)]
@@ -109,7 +112,7 @@ def get_Adult_Data():
 
     train.drop([2, 3, 13], axis=1, inplace=True)
     test.drop([2, 3, 13], axis=1, inplace=True)
-
+    
     X_trn = np.array([i.toarray()[0] for i in  ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(train)[:, :-1])])
     Y_trn = LabelEncoder().fit_transform(np.array(train)[:, -1])
     X_tst = np.array([i.toarray()[0] for i in ColumnTransformer([('one_hot_encoder', OneHotEncoder(categories='auto', drop='first'), [1, 3, 4, 5, 6, 7])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(test)[:, :-1])])
@@ -133,13 +136,6 @@ def get_ACS_Data(seed=0):
     return train_test_split(X, Y, test_size=0.33, random_state=seed)
 
 if __name__ == '__main__':
-    train = pd.read_csv("adult.data", header=None, na_values= ' ?')
-    test = pd.read_csv("adult.test", header=None, na_values= ' ?') 
-    train = train.dropna()
-    test = test.dropna()
-    train.drop([2, 3, 13], axis=1, inplace=True)
-    test.drop([2, 3, 13], axis=1, inplace=True)
-    data = pd.concat([train, test], ignore_index=True)
-    data = data.rename(columns={key: value for value, key in enumerate(data.columns)})
-    rep = Representer(data)
-    point = rep.get_data()[0]
+  X_trn, X_tst, Y_trn, Y_tst = get_Adult_Data()
+  print(X_trn.shape)
+  print(X_tst.shape)
