@@ -5,6 +5,7 @@ from itertools import chain, combinations
 from numpy.random import pareto
 from sklearn.neighbors import KernelDensity as KDE
 from sklearn.model_selection import GridSearchCV, KFold
+import math
 
 from sklearn.ensemble import RandomForestClassifier
 from data import get_German_Data, get_Adult_Data, get_ACS_Data, Representer
@@ -165,15 +166,22 @@ class explain(object):
         self.minimality_cache[str_S] = True
         return True
     
+    def to_binary(self, X, n):
+        Y = np.array([0]*n)
+        for x in X:
+            Y[x] = 1
+        return Y 
     def Johnston_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
+        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
-        samples = np.random.randint(0, 2, (num_samples, len(self.N)))
-        for S in samples:
+        for m in range(num_samples):
+            k = np.random.randint(0, n+1)
+            X = np.random.permute(self.N)
+            S = to_binary(X[:k], self.N)
             χ = self._critical_features(S)
             if (size_χ := np.sum(χ)) != 0: 
-                unbiased_estimate += (2 * χ / size_χ)
+                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(χ / size_χ)
         return unbiased_estimate / num_samples
     
     def Johnston_index(self):
@@ -189,12 +197,14 @@ class explain(object):
 
     def Deegan_Packel_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
-        np.random.seed(seed)        
-        samples = np.random.randint(0, 2, (num_samples, len(self.N)))
-        for S in samples:
+        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
+        np.random.seed(seed)
+        for m in range(num_samples):
+            k = np.random.randint(0, n+1)
+            X = np.random.permute(self.N)
+            S = to_binary(X[:k], self.N)
             if self._is_minimal(S) and (size_S := np.sum(S)) != 0:
-                unbiased_estimate += (2 * S / size_S)
+                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(S / size_S)
         return unbiased_estimate / num_samples
     
     def Deegan_Packel_index(self):
@@ -209,12 +219,14 @@ class explain(object):
     
     def Holler_Packel_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
-        np.random.seed(seed)        
-        samples = np.random.randint(0, 2, (num_samples, len(self.N)))
-        for S in samples:
+        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
+        np.random.seed(seed)
+        for m in range(num_samples):
+            k = np.random.randint(0, n+1)
+            X = np.random.permute(self.N)
+            S = to_binary(X[:k], self.N)
             if self._is_minimal(S):
-                unbiased_estimate += 2 * S
+                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(S)
         return unbiased_estimate / num_samples
     
     def Holler_Packel_index(self):
@@ -231,9 +243,10 @@ class explain(object):
         unbiased_estimate = np.zeros(len(self.N))
         num_samples = int(np.ceil((np.log(1 / ε) + np.log(len(self.N) / δ)) / ε))
         np.random.seed(seed)            
-        samples = np.random.randint(0, 2, (num_samples, len(self.N)))
-        for S in samples:
-            size_S = np.sum(S)
+        for m in range(num_samples):
+            k = np.random.randint(0, n+1)
+            X = np.random.permute(self.N)
+            S = to_binary(X[:k], self.N)
             for i in self.N:
                 if self._is_quasi_minimal(S, i):
                     unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
@@ -254,11 +267,15 @@ class explain(object):
     
     def Banzhaf_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
+        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
-        samples = np.random.randint(0, 2, (num_samples, len(self.N)))
-        for S in samples:
-            unbiased_estimate += np.vectorize(lambda i, S=S: 2 if self._is_quasi_minimal(S, i) else 0)(np.arange(len(self.N)))
+        for m in range(num_samples):
+            k = np.random.randint(0, n+1)
+            X = np.random.permute(self.N)
+            S = to_binary(X[:k], self.N)
+            χ = self._critical_features(S)
+            if (size_χ := np.sum(χ)) != 0: 
+                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(χ)
         return unbiased_estimate / num_samples
     
     def Banzhaf_index(self):
@@ -272,18 +289,15 @@ class explain(object):
 
     def Shapley_Shubik_sample(self, ε, δ, seed=0):
         unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (2 * np.power(ε, 2))))
+        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
-        samples = np.random.randint(0, 2, (num_samples, len(self.N)))
-        n = len(self.N)
-        n_fact = np.math.factorial(n)
-        two_to_n = np.power(2., n)
-        for S in samples:
-            if (size_S := np.sum(S)) != 0:
-                addend = two_to_n * np.math.factorial(size_S - 1) * np.math.factorial(n - size_S) / n_fact
-                for i in self.N:
-                    if self._is_quasi_minimal(S, i):
-                        unbiased_estimate[i] += addend 
+        for m in range(num_samples):
+            k = np.random.randint(0, n+1)
+            X = np.random.permute(self.N)
+            S = to_binary(X[:k], self.N)
+            χ = self._critical_features(S)
+            if (size_χ := np.sum(χ)) != 0: 
+                unbiased_estimate += (self.N*math.comb(self.N, k)/(math.factorial(k-1)*math.factorial(self.N-k-1)))*(χ)
         return unbiased_estimate / num_samples
     
     def Shapley_Shubik_index(self):
