@@ -129,7 +129,9 @@ class explain(object):
      
     def value(self, S):
         if(S[0] == 1):
-            return 1
+            if(S[1] == 1):
+                if(S[2] == 1):
+                    return 1
         return 0
 
     def _critical_features(self, S):
@@ -176,6 +178,8 @@ class explain(object):
         n = len(self.N)
         Sret = np.copy(S)
         cant_remove = [i]
+        count = 0
+        flag1 = 1
         while(1):
             flag1 = 0
             removed = -1
@@ -184,7 +188,7 @@ class explain(object):
                 if(j in cant_remove):
                     continue
                 if(Sret[j] == 1):
-                    Sprime[j] == 0
+                    Sprime[j] = 0
                     removed = j
                     flag1 = 1
                     break
@@ -197,6 +201,8 @@ class explain(object):
                 break
             if(flag1 == 0):
                 break
+            # print("count = %d, cant_rem = %d, Sret = %d, removed = %d" % (count, len(cant_remove), np.sum(Sret), removed))
+            count += 1
         return Sret
 
     def to_binary(self, X, n):
@@ -308,13 +314,14 @@ class explain(object):
         n = len(self.N)
         unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
+            # print(m)
             k = np.random.randint(1, n+1)
             X = np.random.permutation(n)
             S = self.to_binary(X[:k], n)
             for i in self.N:
                 if self._is_quasi_minimal(S, i):
-                    # size_S = np.sum(self.find_minimal_set(S, i))
-                    unbiased_estimate[i] = max(unbiased_estimate[i], 1 / np.sum(S))
+                    size_S = np.sum(self.find_minimal_set(S, i))
+                    unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
         return unbiased_estimate
 
 
