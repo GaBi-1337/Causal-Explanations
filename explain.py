@@ -6,6 +6,7 @@ from numpy.random import pareto
 from sklearn.neighbors import KernelDensity as KDE
 from sklearn.model_selection import GridSearchCV, KFold
 import math
+import multiprocessing as mp
 
 from sklearn.ensemble import RandomForestClassifier
 from data import get_German_Data, get_Adult_Data, get_ACS_Data, Representer
@@ -113,19 +114,24 @@ class explain(object):
                     newPoint[idx] = self.mapper.le_inverse(prediction, idx) if idx in self.mapper.categorical else prediction
         return self.mapper.point_transform(np.array(newPoint))
 
-    def value(self, S):
-        if len(self.fra) == 0:
-            raise ValueError("There are no feasible recourse actions")
-        if (str_S := np.array2string(S, separator='')[1:-1]) in self.value_cache:
-            return self.value_cache[str_S]
-        for point in self.fra:
-            xp = self._get_xp(S, point).reshape(1, -1)
-            if self.model.predict(xp) != self.model.predict(self.poiohe.reshape(1, -1)):
-                self.value_cache[str_S] = 1
-                return 1
-            self.value_cache[str_S] = 0
-        return 0
+    # def value(self, S):
+    #     if len(self.fra) == 0:
+    #         raise ValueError("There are no feasible recourse actions")
+    #     if (str_S := np.array2string(S, separator='')[1:-1]) in self.value_cache:
+    #         return self.value_cache[str_S]
+    #     for point in self.fra:
+    #         xp = self._get_xp(S, point).reshape(1, -1)
+    #         if self.model.predict(xp) != self.model.predict(self.poiohe.reshape(1, -1)):
+    #             self.value_cache[str_S] = 1
+    #             return 1
+    #         self.value_cache[str_S] = 0
+    #     return 0
      
+    def value(self, S):
+        if(S[0] == 1):
+            return 1
+        return 0
+
     def _critical_features(self, S):
         if (str_S := np.array2string(S, separator='')[1:-1]) in self.critical_features_cache:
             return self.critical_features_cache[str_S]
@@ -165,24 +171,63 @@ class explain(object):
                     return False
         self.minimality_cache[str_S] = True
         return True
-    
+
+    def find_minimal_set(self, S, i):
+        n = len(self.N)
+        Sret = np.copy(S)
+        cant_remove = [i]
+        while(1):
+            flag1 = 0
+            removed = -1
+            Sprime = np.copy(Sret)
+            for j in range(n):
+                if(j in cant_remove):
+                    continue
+                if(Sret[j] == 1):
+                    Sprime[j] == 0
+                    removed = j
+                    flag1 = 1
+                    break
+            if(flag1 == 1):
+                if(self._is_quasi_minimal(Sprime, i)):
+                    Sret = np.copy(Sprime)
+                else:
+                    cant_remove.append(removed)
+            if(len(cant_remove) == np.sum(Sret)):
+                break
+            if(flag1 == 0):
+                break
+        return Sret
+
     def to_binary(self, X, n):
         Y = np.array([0]*n)
         for x in X:
             Y[x] = 1
         return Y 
-    def Johnston_sample(self, ε, δ, seed=0):
-        unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
-        np.random.seed(seed)
+
+    def Johnston_sample_helper(self, inp):
+        num_samples = inp[0]
+        np.random.seed(inp[1])
+        n = len(self.N)
+        unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            k = np.random.randint(0, n+1)
-            X = np.random.permute(self.N)
-            S = to_binary(X[:k], self.N)
+            # print(m)
+            k = np.random.randint(1, n+1)
+            X = np.random.permutation(n)
+            S = self.to_binary(X[:k], n)
             χ = self._critical_features(S)
             if (size_χ := np.sum(χ)) != 0: 
-                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(χ / size_χ)
+                unbiased_estimate += (n*math.comb(n, k)/(2**(n-1)))*(χ / size_χ)
         return unbiased_estimate / num_samples
+
+    def Johnston_sample(self, ε, δ, seed = 0, num_processes = 1):
+        # print("N = %d" % len(self.N))
+        n = len(self.N)
+        num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        np.random.seed(seed)
+        with mp.Pool(processes = num_processes) as pool:
+            result = pool.map(self.Johnston_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
+        return np.mean(result, axis = 0)
     
     def Johnston_index(self):
         unbiased_estimate = np.zeros(len(self.N))
@@ -195,17 +240,26 @@ class explain(object):
                 unbiased_estimate += (χ / size_χ)
         return unbiased_estimate / np.power(2, len(self.N) - 1)
 
-    def Deegan_Packel_sample(self, ε, δ, seed=0):
-        unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
-        np.random.seed(seed)
+    def Deegan_Packel_sample_helper(self, inp):
+        num_samples = inp[0]
+        np.random.seed(inp[1])
+        n = len(self.N)
+        unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            k = np.random.randint(0, n+1)
-            X = np.random.permute(self.N)
-            S = to_binary(X[:k], self.N)
+            k = np.random.randint(1, n+1)
+            X = np.random.permutation(n)
+            S = self.to_binary(X[:k], n)
             if self._is_minimal(S) and (size_S := np.sum(S)) != 0:
-                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(S / size_S)
+                unbiased_estimate += (n*math.comb(n, k)/(2**(n-1)))*(S / size_S)
         return unbiased_estimate / num_samples
+
+    def Deegan_Packel_sample(self, ε, δ, seed=0, num_processes = 1):
+        n = len(self.N)
+        num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        np.random.seed(seed)
+        with mp.Pool(processes = num_processes) as pool:
+            result = pool.map(self.Deegan_Packel_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
+        return np.mean(result, axis = 0)
     
     def Deegan_Packel_index(self):
         unbiased_estimate = np.zeros(len(self.N))
@@ -216,18 +270,27 @@ class explain(object):
             if self._is_minimal(S) and (size_S := np.sum(S)) != 0:
                 unbiased_estimate += (S / size_S)
         return unbiased_estimate / np.power(2, len(self.N) - 1)
-    
-    def Holler_Packel_sample(self, ε, δ, seed=0):
-        unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
-        np.random.seed(seed)
+
+    def Holler_Packel_sample_helper(self, inp):
+        num_samples = inp[0]
+        np.random.seed(inp[1])
+        n = len(self.N)
+        unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            k = np.random.randint(0, n+1)
-            X = np.random.permute(self.N)
-            S = to_binary(X[:k], self.N)
+            k = np.random.randint(1, n+1)
+            X = np.random.permutation(n)
+            S = self.to_binary(X[:k], n)
             if self._is_minimal(S):
-                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(S)
+                unbiased_estimate += (n*math.comb(n, k)/(2**(n-1)))*(S)
         return unbiased_estimate / num_samples
+    
+    def Holler_Packel_sample(self, ε, δ, seed=0, num_processes = 1):
+        n = len(self.N)
+        num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        np.random.seed(seed)
+        with mp.Pool(processes = num_processes) as pool:
+            result = pool.map(self.Holler_Packel_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
+        return np.mean(result, axis = 0)
     
     def Holler_Packel_index(self):
         unbiased_estimate = np.zeros(len(self.N))
@@ -239,18 +302,29 @@ class explain(object):
                 unbiased_estimate += S
         return unbiased_estimate / np.power(2, len(self.N) - 1)
 
-    def Responsibility_sample(self, ε, δ, seed=0):
-        unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(np.ceil((np.log(1 / ε) + np.log(len(self.N) / δ)) / ε))
-        np.random.seed(seed)            
+    def Responsibility_sample_helper(self, inp):
+        num_samples = inp[0]
+        np.random.seed(inp[1])
+        n = len(self.N)
+        unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            k = np.random.randint(0, n+1)
-            X = np.random.permute(self.N)
-            S = to_binary(X[:k], self.N)
+            k = np.random.randint(1, n+1)
+            X = np.random.permutation(n)
+            S = self.to_binary(X[:k], n)
             for i in self.N:
                 if self._is_quasi_minimal(S, i):
-                    unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
+                    # size_S = np.sum(self.find_minimal_set(S, i))
+                    unbiased_estimate[i] = max(unbiased_estimate[i], 1 / np.sum(S))
         return unbiased_estimate
+
+
+    def Responsibility_sample(self, ε, δ, seed=0, num_processes = 1):
+        n = len(self.N)
+        num_samples = int(np.ceil((np.log(1 / ε) + np.log(len(self.N) / δ)) / ε))
+        np.random.seed(seed)            
+        with mp.Pool(processes = num_processes) as pool:
+            result = pool.map(self.Responsibility_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
+        return np.max(result, axis = 0)
     
     def Responsibility_index(self):
         unbiased_estimate = np.zeros(len(self.N))
@@ -263,20 +337,30 @@ class explain(object):
                 for i in self.N:
                     if S[i] == 1:
                         unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
-        return unbiased_estimate 
-    
-    def Banzhaf_sample(self, ε, δ, seed=0):
-        unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
-        np.random.seed(seed)
+        return unbiased_estimate
+
+    def Banzhaf_sample_helper(self, inp):
+        num_samples = inp[0]
+        np.random.seed(inp[1])
+        n = len(self.N)
+        unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            k = np.random.randint(0, n+1)
-            X = np.random.permute(self.N)
-            S = to_binary(X[:k], self.N)
+            # print(m)
+            k = np.random.randint(1, n+1)
+            X = np.random.permutation(n)
+            S = self.to_binary(X[:k], n)
             χ = self._critical_features(S)
-            if (size_χ := np.sum(χ)) != 0: 
-                unbiased_estimate += (self.N*math.comb(self.N, k)/(2**(self.N-1)))*(χ)
+            unbiased_estimate += (n*math.comb(n, k)/(2**(n-1)))*(χ)
         return unbiased_estimate / num_samples
+
+    def Banzhaf_sample(self, ε, δ, seed = 0, num_processes = 1):
+        # print("N = %d" % len(self.N))
+        n = len(self.N)
+        num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        np.random.seed(seed)
+        with mp.Pool(processes = num_processes) as pool:
+            result = pool.map(self.Banzhaf_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
+        return np.mean(result, axis = 0)
     
     def Banzhaf_index(self):
         unbiased_estimate = np.zeros(len(self.N))
@@ -287,18 +371,28 @@ class explain(object):
             unbiased_estimate += np.vectorize(lambda i, S=S: 1 if self._is_quasi_minimal(S, i) else 0)(np.arange(len(self.N)))
         return unbiased_estimate / np.power(2, len(self.N) - 1)
 
-    def Shapley_Shubik_sample(self, ε, δ, seed=0):
-        unbiased_estimate = np.zeros(len(self.N))
-        num_samples = int(n * np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
-        np.random.seed(seed)
+    def Shapley_Shubik_sample_helper(self, inp):
+        num_samples = inp[0]
+        np.random.seed(inp[1])
+        n = len(self.N)
+        unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            k = np.random.randint(0, n+1)
-            X = np.random.permute(self.N)
-            S = to_binary(X[:k], self.N)
+            # print(m)
+            k = np.random.randint(1, n+1)
+            X = np.random.permutation(n)
+            S = self.to_binary(X[:k], n)
             χ = self._critical_features(S)
-            if (size_χ := np.sum(χ)) != 0: 
-                unbiased_estimate += (self.N*math.comb(self.N, k)/(math.factorial(k-1)*math.factorial(self.N-k-1)))*(χ)
+            unbiased_estimate += (n*math.comb(n, k)*(math.factorial(k-1)*math.factorial(n-k))/math.factorial(n))*(χ)
         return unbiased_estimate / num_samples
+
+    def Shapley_Shubik_sample(self, ε, δ, seed = 0, num_processes = 1):
+        # print("N = %d" % len(self.N))
+        n = len(self.N)
+        num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        np.random.seed(seed)
+        with mp.Pool(processes = num_processes) as pool:
+            result = pool.map(self.Shapley_Shubik_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
+        return np.mean(result, axis = 0)
     
     def Shapley_Shubik_index(self):
         unbiased_estimate = np.zeros(len(self.N))
@@ -316,26 +410,35 @@ class explain(object):
         return unbiased_estimate
 
 def main():
-    train = pd.read_csv("adult.data", header=None, na_values= ' ?')
-    test = pd.read_csv("adult.test", header=None, na_values= ' ?') 
+    train = pd.read_csv("data/adult.data", header=None, na_values= ' ?')
+    test = pd.read_csv("data/adult.test", header=None, na_values= ' ?') 
     train = train.dropna()
     test = test.dropna()
     train.drop([2, 3, 13], axis=1, inplace=True)
     test.drop([2, 3, 13], axis=1, inplace=True)
+    # print(train.loc[0])
     data = pd.concat([train, test], ignore_index=True)
     rep = Representer(data.rename(columns={key: value for value, key in enumerate(data.columns)}))
-    cg = Casual_Graph({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, {(0, 2), (0,3), (0, 4), (1, 5), (1, 3), (1, 6), (3, 7), (6, 8), (5, 9), (6, 10)}, rep)
+    cg = Casual_Graph({0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, {(0, 11), (1, 11), (2, 11), (3, 11), (4, 11), (5, 11), (6, 11), (7, 11), (8, 11), (9, 11), (10, 11)}, rep)
     data = rep.get_data()
     X = data[:, : -1]
     Y = data[:, -1]
     X_trn, X_tst, Y_trn, Y_tst = train_test_split(X, Y, test_size=0.333, shuffle=False)
     model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=-1, random_state=0).fit(X_trn, Y_trn)
     print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
+    print(X_tst[0])
     poi = rep.point_inverse(X_tst[0])
+    print(poi)
     data = X_tst[1:]
     out = Y_tst[1:]
-    exp = explain(model, poi, cg, rep).feasible_recourse_actions(data, out, 5)
-    print(exp.Johnston_sample(1e-1, 1e-2))
+    # exp = explain(model, poi, cg, rep).feasible_recourse_actions(data, out, 5)
+    exp = explain(model, poi, cg, rep)
+    print(exp.Johnston_sample(1e-1, 1e-4, num_processes = 2))
+    print(exp.Deegan_Packel_sample(1e-1, 1e-4, num_processes = 2))
+    print(exp.Holler_Packel_sample(1e-1, 1e-4, num_processes = 2))
+    print(exp.Responsibility_sample(1e-1, 1e-4, num_processes = 2))
+    print(exp.Banzhaf_sample(1e-1, 1e-4, num_processes = 2))
+    print(exp.Shapley_Shubik_sample(1e-1, 1e-4, num_processes = 2))
 
 
 

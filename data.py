@@ -5,8 +5,6 @@ import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 
-os.chdir("data")
-
 class Representer:
 
     def __init__(self, data):
@@ -104,8 +102,8 @@ class Representer:
 
 def get_Adult_Data():
 
-    train = pd.read_csv("adult.data", header=None, na_values= ' ?')
-    test = pd.read_csv("adult.test", header=None, na_values= ' ?')
+    train = pd.read_csv("data/adult.data", header=None, na_values= ' ?')
+    test = pd.read_csv("data/adult.test", header=None, na_values= ' ?')
     
     train = train.dropna()
     test = test.dropna()
@@ -120,15 +118,15 @@ def get_Adult_Data():
     return X_trn, X_tst, Y_trn, Y_tst
 
 def get_German_Data(seed=0):
-    data = pd.read_csv("german.data", sep=" ")
+    data = pd.read_csv("data/german.data", sep=" ")
     
-    X = ColumnTransformer([('one_hot_encoder', OneHotEncoder(drop='first'), [0, 2, 3, 5, 6, 8, 9, 11, 13, 14, 16, 18, 19])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(data)[:, :-1])
+    X = ColumnTransformer([('data/one_hot_encoder', OneHotEncoder(drop='first'), [0, 2, 3, 5, 6, 8, 9, 11, 13, 14, 16, 18, 19])], remainder='passthrough', n_jobs=-1).fit_transform(np.array(data)[:, :-1])
     Y = LabelEncoder().fit_transform(np.array(data)[:, -1])
 
     return train_test_split(X, Y, test_size=0.33, random_state=seed)
 
 def get_ACS_Data(seed=0):
-    data = np.array(pd.read_csv("acs13.csv"))
+    data = np.array(pd.read_csv("data/acs13.csv"))
 
     X = np.array(data[:, :-1])
     Y = np.array(data[:, -1])
