@@ -50,7 +50,6 @@ def main():
         prediction = model.predict(point.reshape(1, -1))
         print("prediction: ", prediction)
         exp = Causal_Explanations(model, poi, rep, baselines_0 if prediction == 0 else baselines_1)
-        print(poi)
         index_values = dict()
         index_values['JI'] = exp.Johnston_sample(1e-1, 1e-2, num_processes = 2)
         index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-2, num_processes = 2)
@@ -58,10 +57,10 @@ def main():
         index_values['RPI'] = exp.Responsibility_sample(1e-1, 1e-2, num_processes = 2)
         index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-2, num_processes = 2)
         index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-2, num_processes = 2)
-        for pair in combinations(index_values.items(), 2):
-            score = kendalltau(pair[0][1], pair[1][1], variant='c')[0]
-            if score != 1.0:
-                with open("adult_compare.txt", "w") as file:
+        with open("adult_compare.txt", "w") as file:
+            for pair in combinations(index_values.items(), 2):
+                score = kendalltau(pair[0][1], pair[1][1], variant='c')[0]
+                if score != 1.0:
                     file.write("Point: " + str(poi) + '\n')
                     file.write("Indices :" + pair[0][0] + ", " + pair[1][0] + '\n')
                     file.write("Tau score: " + str(score) + '\n')
