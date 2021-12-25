@@ -6,6 +6,8 @@ from explain import Causal_Explanations
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import multiprocessing as mp
+from scipy.stats import kendalltau
+from itertools import combinations
 
 def main():
     mp.set_start_method('loky')
@@ -49,14 +51,21 @@ def main():
         print("prediction: ", prediction)
         exp = Causal_Explanations(model, poi, rep, baselines_0 if prediction == 0 else baselines_1)
         print(poi)
-        print(exp.Johnston_sample(1e-1, 1e-4, num_processes = 2))
-        break
-        #print(exp.Deegan_Packel_sample(1e-1, 1e-2, num_processes = 2))
-        #print(exp.Holler_Packel_sample(1e-1, 1e-2, num_processes = 2))
-        #print(exp.Responsibility_sample(1e-1, 1e-2, num_processes = 2))
-        #print(exp.Banzhaf_sample(1e-1, 1e-2, num_processes = 2))
-        #print(exp.Shapley_Shubik_sample(1e-1, 1e-2, num_processes = 2))
+        index_values = dict()
+        index_values['JI'] = exp.Johnston_sample(1e-1, 1e-2, num_processes = 2)
+        index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-2, num_processes = 2)
+        index_values['HPI'] = exp.Holler_Packel_sample(1e-1, 1e-2, num_processes = 2)
+        index_values['RPI'] = exp.Responsibility_sample(1e-1, 1e-2, num_processes = 2)
+        index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-2, num_processes = 2)
+        index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-2, num_processes = 2)
+        for pair in combinations(index_values.items(), 2):
+            score = kendalltau(pair[0][1], pair[1][1], variant='c')[0]
+            if score != 1.0:
+                with open("adult_compare.txt", "w") as file:
+                    file.write("Point: " + str(poi) + '\n')
+                    file.write("Indices :" + pair[0][0] + ", " + pair[1][0] + '\n')
+                    file.write("Tau score: " + str(score) + '\n')
+                    file.write('\n')
     
-
 if __name__ == "__main__":
     main()
