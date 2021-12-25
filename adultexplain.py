@@ -45,19 +45,19 @@ def main():
     X_trn, X_tst, Y_trn, Y_tst = train_test_split(X, Y, test_size=0.333, shuffle=False)
     model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=1, random_state=0).fit(X_trn, Y_trn)
     print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
-    for point in X_tst:
-        poi = rep.point_inverse(point)
-        prediction = model.predict(point.reshape(1, -1))
-        print("prediction: ", prediction)
-        exp = Causal_Explanations(model, poi, rep, baselines_0 if prediction == 0 else baselines_1)
-        index_values = dict()
-        index_values['JI'] = exp.Johnston_sample(1e-1, 1e-2, num_processes = 2)
-        index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-2, num_processes = 2)
-        index_values['HPI'] = exp.Holler_Packel_sample(1e-1, 1e-2, num_processes = 2)
-        index_values['RPI'] = exp.Responsibility_sample(1e-1, 1e-2, num_processes = 2)
-        index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-2, num_processes = 2)
-        index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-2, num_processes = 2)
-        with open("adult_compare.txt", "w") as file:
+    with open("adult_compare.txt", "w") as file:
+        for point in X_tst:
+            poi = rep.point_inverse(point)
+            prediction = model.predict(point.reshape(1, -1))
+            print("prediction: ", prediction)
+            exp = Causal_Explanations(model, poi, rep, baselines_0 if prediction == 0 else baselines_1)
+            index_values = dict()
+            index_values['JI'] = exp.Johnston_sample(1e-1, 1e-2, num_processes = 2)
+            index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-2, num_processes = 2)
+            index_values['HPI'] = exp.Holler_Packel_sample(1e-1, 1e-2, num_processes = 2)
+            index_values['RPI'] = exp.Responsibility_sample(1e-1, 1e-2, num_processes = 2)
+            index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-2, num_processes = 2)
+            index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-2, num_processes = 2)
             for pair in combinations(index_values.items(), 2):
                 score = kendalltau(pair[0][1], pair[1][1], variant='c')[0]
                 if score != 1.0:
