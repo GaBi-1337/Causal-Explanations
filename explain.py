@@ -445,13 +445,7 @@ class Causal_Explanations(object):
         return self"""
     
     def _get_xp(self, S, point):
-        newPoint = []
-        for idx, val in enumerate(S):
-            if val == 1:
-                newPoint.append(point[idx])
-            else:
-                newPoint.append(self.poi[idx])
-        return self.mapper.point_transform(np.array(newPoint))
+        return self.mapper.point_transform(np.where(S == 1, point, self.poi))
 
     # def value(self, S):
     #     if len(self.fra) == 0:
