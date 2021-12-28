@@ -1,4 +1,3 @@
-import random
 import pandas as pd
 import numpy as np
 from data import Representer
@@ -11,6 +10,7 @@ from itertools import combinations
 
 def main():
     mp.set_start_method('loky')
+
     train = pd.read_csv("data/adult.data", header=None, na_values= ' ?')
     test = pd.read_csv("data/adult.test", header=None, na_values= ' ?') 
     train = train.dropna()
@@ -34,9 +34,10 @@ def main():
     for age in [20, 30, 40, 50]:
         for ms in [' Never-married', ' Widowed']:
             for ocup in [' Tech-support', ' Craft-repair', ' Handlers-cleaners']:
-                for sex in [' Male', ' Female']:
-                    baseline = [age, ' Without-pay', np.min(data[2]), ms, ocup, ' Unmarried', random.choice([' Asian-Pac-Islander', ' Amer-Indian-Eskimo', ' Black']), sex, np.min(data[8]), np.max(data[9]), np.min(data[10])]
-                    baselines_1.append(baseline)
+                for race in [' Asian-Pac-Islander', ' Amer-Indian-Eskimo', ' Black']:
+                    for sex in [' Male', ' Female']:
+                        baseline = [age, ' Without-pay', np.min(data[2]), ms, ocup, ' Unmarried', race, sex, np.min(data[8]), np.max(data[9]), np.min(data[10])]
+                        baselines_1.append(baseline)
     baselines_1 = np.array(baselines_1)
 
     data = rep.get_data()
@@ -45,26 +46,28 @@ def main():
     X_trn, X_tst, Y_trn, Y_tst = train_test_split(X, Y, test_size=0.333, shuffle=False)
     model = RandomForestClassifier(n_estimators=50, max_features=None, n_jobs=1, random_state=0).fit(X_trn, Y_trn)
     print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
-    with open("adult_compare.txt", "w") as file:
-        for point in X_tst:
-            poi = rep.point_inverse(point)
-            prediction = model.predict(point.reshape(1, -1))
-            print("prediction: ", prediction)
-            exp = Causal_Explanations(model, poi, rep, baselines_0 if prediction == 0 else baselines_1)
-            index_values = dict()
-            index_values['JI'] = exp.Johnston_sample(1e-1, 1e-2, num_processes = 2)
-            index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-2, num_processes = 2)
-            index_values['HPI'] = exp.Holler_Packel_sample(1e-1, 1e-2, num_processes = 2)
-            index_values['RPI'] = exp.Responsibility_sample(1e-1, 1e-2, num_processes = 2)
-            index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-2, num_processes = 2)
-            index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-2, num_processes = 2)
-            for pair in combinations(index_values.items(), 2):
-                score = kendalltau(pair[0][1], pair[1][1], variant='c')[0]
-                if score != 1.0:
-                    file.write("Point: " + str(poi) + '\n')
-                    file.write("Indices :" + pair[0][0] + ", " + pair[1][0] + '\n')
-                    file.write("Tau score: " + str(score) + '\n')
-                    file.write('\n')
+
+    index_values = {'JI': None, 'DPI': None, 'HPI': None, 'RI': None, 'BI': None, 'SI': None}
+    key_pairs = list(combinations(index_values.keys(), 2))
+    files = [open('rankings/' + pair[0] + '_' + pair[1] + '.txt', 'w') for pair in key_pairs]
+    for point in X_tst:
+        exp = Causal_Explanations(model, poi:=rep.point_inverse(point), rep, baselines_0 if (prediction:=model.predict(point.reshape(1, -1))) == 0 else baselines_1)
+        index_values['JI'] = exp.Johnston_sample(1e-1, 1e-1, num_processes = 2)
+        index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-1, num_processes = 2)
+        index_values['HPI'] = exp.Holler_Packel_sample(1e-1, 1e-1, num_processes = 2)
+        index_values['RI'] = exp.Responsibility_sample(1e-1, 1e-1, num_processes = 2)
+        index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-1, num_processes = 2)
+        index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-1, num_processes = 2)
+        for key_pair, file in zip(key_pairs, files):
+            if (score:=kendalltau(index_values[key_pair[0]], index_values[key_pair[1]], variant='c')[0]) != 1.0:
+                file.write("Point: " + str(poi) + '\n')
+                file.write("Prediction: " + str(prediction) + '\n')
+                file.write(key_pair[0] + ": " + str(index_values[key_pair[0]]) + '\n')
+                file.write(key_pair[1] + ": " + str(index_values[key_pair[1]]) + '\n')
+                file.write("Tau: " + str(score) + '\n')
+                file.write('\n')
+
+    for file in files: file.close()
     
 if __name__ == "__main__":
     main()

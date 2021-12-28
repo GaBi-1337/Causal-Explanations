@@ -1,0 +1,8 @@
+Point: ['38' ' Private' '9' ' Married-civ-spouse' ' Farming-fishing' ' Husband'
+ ' White' ' Male' '0' '0' '50']
+Prediction: [0]
+HPI: [0.00089518 0.         0.00081561 0.         0.00131293 0.
+ 0.         0.         0.00133283 0.         0.00089518]
+RI: [0.5 0.  1.  0.  1.  0.  0.  0.  1.  0.  0.5]
+Tau: True
+
