@@ -52,12 +52,12 @@ def main():
     files = [open('rankings/' + pair[0] + '_' + pair[1] + '.txt', 'w') for pair in key_pairs]
     for point in X_tst:
         exp = Causal_Explanations(model, poi:=rep.point_inverse(point), rep, baselines_0 if (prediction:=model.predict(point.reshape(1, -1))) == 0 else baselines_1)
-        index_values['JI'] = exp.Johnston_sample(1e-1, 1e-1, num_processes = 2)
-        index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-1, num_processes = 2)
-        index_values['HPI'] = exp.Holler_Packel_sample(1e-1, 1e-1, num_processes = 2)
-        index_values['RI'] = exp.Responsibility_sample(1e-1, 1e-1, num_processes = 2)
-        index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-1, num_processes = 2)
-        index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-1, num_processes = 2)
+        index_values['JI'] = exp.Johnston_sample(1e-2, 1e-4, num_processes = 40)
+        index_values['DPI'] = exp.Deegan_Packel_sample(1e-2, 1e-4, num_processes = 40)
+        index_values['HPI'] = exp.Holler_Packel_sample(1e-2, 1e-4, num_processes = 40)
+        index_values['RI'] = exp.Responsibility_sample(1e-2, 1e-4, num_processes = 40)
+        index_values['BI'] = exp.Banzhaf_sample(1e-2, 1e-4, num_processes = 40)
+        index_values['SI'] = exp.Shapley_Shubik_sample(1e-2, 1e-4, num_processes = 40)
         for key_pair, file in zip(key_pairs, files):
             if (score:=kendalltau(index_values[key_pair[0]], index_values[key_pair[1]], variant='c')[0]) != 1.0:
                 file.write("Point: " + str(poi) + '\n')
