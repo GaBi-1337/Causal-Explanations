@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 import multiprocessing as mp
 from scipy.stats import kendalltau
 from itertools import combinations
-
 def main():
     mp.set_start_method('loky')
 
@@ -50,16 +49,21 @@ def main():
     index_values = {'JI': None, 'DPI': None, 'HPI': None, 'RI': None, 'BI': None, 'SI': None}
     key_pairs = list(combinations(index_values.keys(), 2))
     files = [open('rankings/' + pair[0] + '_' + pair[1] + '.txt', 'w') for pair in key_pairs]
-    for point in X_tst:
+    ktfiles = [open('scores/' + pair[0] + '_' + pair[1] + '.txt', 'w') for pair in key_pairs]
+    np.random.seed(0)
+    np.random.shuffle(X_tst)    
+    for point in X_tst[:2]:
         exp = Causal_Explanations(model, poi:=rep.point_inverse(point), rep, baselines_0 if (prediction:=model.predict(point.reshape(1, -1))) == 0 else baselines_1)
-        index_values['JI'] = exp.Johnston_sample(1e-2, 1e-4, num_processes = 40)
-        index_values['DPI'] = exp.Deegan_Packel_sample(1e-2, 1e-4, num_processes = 40)
-        index_values['HPI'] = exp.Holler_Packel_sample(1e-2, 1e-4, num_processes = 40)
-        index_values['RI'] = exp.Responsibility_sample(1e-2, 1e-4, num_processes = 40)
-        index_values['BI'] = exp.Banzhaf_sample(1e-2, 1e-4, num_processes = 40)
-        index_values['SI'] = exp.Shapley_Shubik_sample(1e-2, 1e-4, num_processes = 40)
-        for key_pair, file in zip(key_pairs, files):
-            if (score:=kendalltau(index_values[key_pair[0]], index_values[key_pair[1]], variant='c')[0]) != 1.0:
+        index_values['JI'] = exp.Johnston_sample(1e-1, 1e-2, num_processes = 5)
+        index_values['DPI'] = exp.Deegan_Packel_sample(1e-1, 1e-2, num_processes = 5)
+        index_values['HPI'] = exp.Holler_Packel_sample(1e-1, 1e-2, num_processes = 5)
+        index_values['RI'] = exp.Responsibility_sample(1e-1, 1e-2, num_processes = 5)
+        index_values['BI'] = exp.Banzhaf_sample(1e-1, 1e-2, num_processes = 5)
+        index_values['SI'] = exp.Shapley_Shubik_sample(1e-1, 1e-2, num_processes = 5)
+        for key_pair, file, kt in zip(key_pairs, files, ktfiles):
+            score = kendalltau(index_values[key_pair[0]], index_values[key_pair[1]], variant='c')[0]
+            kt.write(str(score) + '\n')
+            if score != 1.0:
                 file.write("Point: " + str(poi) + '\n')
                 file.write("Prediction: " + str(prediction) + '\n')
                 file.write(key_pair[0] + ": " + str(index_values[key_pair[0]]) + '\n')
@@ -68,6 +72,7 @@ def main():
                 file.write('\n')
 
     for file in files: file.close()
+    for file in ktfiles: file.close()
     
 if __name__ == "__main__":
     main()
