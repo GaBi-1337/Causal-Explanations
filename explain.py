@@ -217,7 +217,7 @@ class explain(object):
         n = len(self.N)
         unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            # print(m)
+            print(m, end = '\r')
             k = np.random.randint(1, n+1)
             X = np.random.permutation(n)
             S = self.to_binary(X[:k], n)
@@ -231,6 +231,7 @@ class explain(object):
         n = len(self.N)
         num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
+        print(num_samples)
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Johnston_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
         return np.mean(result, axis = 0)
@@ -498,11 +499,14 @@ class Causal_Explanations(object):
     def _is_minimal(self, S):
         if (str_S := np.array2string(S, separator='')[1:-1]) in self.minimality_cache:
             return self.minimality_cache[str_S]
+        # print("Test:", S)
+        vos = self.value(S)
+        if(vos == 0):
+            return False
         for i in range(len(S)):
             if S[i] != 0:
-                vos = self.value(S)
                 S[i] = 0
-                if vos == 1 and self.value(S) == 0:
+                if self.value(S) == 0:
                     S[i] = 1
                 else:
                     S[i] = 1
@@ -554,7 +558,7 @@ class Causal_Explanations(object):
         n = len(self.N)
         unbiased_estimate = np.zeros(n)
         for m in range(num_samples):
-            # print(m)
+            print(m, end = '\r')
             k = np.random.randint(1, n+1)
             X = np.random.permutation(n)
             S = self.to_binary(X[:k], n)
@@ -567,6 +571,7 @@ class Causal_Explanations(object):
         # print("N = %d" % len(self.N))
         n = len(self.N)
         num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        print(num_samples)
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Johnston_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
@@ -580,6 +585,7 @@ class Causal_Explanations(object):
             S[list(subset)] = 1
             χ = self._critical_features(S)
             if (size_χ := np.sum(χ)) != 0: 
+                # print(S, χ)
                 unbiased_estimate += (χ / size_χ)
         return unbiased_estimate / np.power(2, len(self.N) - 1)
 
@@ -611,6 +617,7 @@ class Causal_Explanations(object):
             S = np.zeros(len(self.N))
             S[list(subset)] = 1
             if self._is_minimal(S) and (size_S := np.sum(S)) != 0:
+                # print(S)
                 unbiased_estimate += (S / size_S)
         return unbiased_estimate / np.power(2, len(self.N) - 1)
 
@@ -634,14 +641,34 @@ class Causal_Explanations(object):
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Holler_Packel_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
         return np.mean(result, axis = 0)
+
+    def test_index(self):
+        unbiased_estimate = np.zeros(len(self.N))
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(1, len(self.N)+1)))
+        # print(len(power_set))
+        # print(power_set)
+        count = 0
+        for subset in power_set:
+            count += 1
+            # print(subset)
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            vos = self.value(S)
+            print(S, self._critical_features(S), vos, self._is_minimal(S))
+        print("Count: ", count)
+        return unbiased_estimate
+
     
     def Holler_Packel_index(self):
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        # print(len(power_set))
         for subset in power_set:
             S = np.zeros(len(self.N))
             S[list(subset)] = 1
+            # print("Test: ", S)
             if self._is_minimal(S):
+                # print(S)
                 unbiased_estimate += S
         return unbiased_estimate / np.power(2, len(self.N) - 1)
 
@@ -678,6 +705,7 @@ class Causal_Explanations(object):
             S[list(subset)] = 1
             if self._is_minimal(S):
                 size_S = np.sum(S)
+                # print(S)
                 for i in self.N:
                     if S[i] == 1:
                         unbiased_estimate[i] = max(unbiased_estimate[i], 1 / size_S)
