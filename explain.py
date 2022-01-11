@@ -180,7 +180,7 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
 
     def Johnston_sample(self, ε, δ, seed = 0, num_processes = 1):
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
+        num_samples = int(np.ceil(2 * np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Johnston_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
@@ -209,7 +209,7 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
 
     def Deegan_Packel_sample(self, ε, δ, seed=0, num_processes = 1):
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
+        num_samples = int(np.ceil(2 * np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Deegan_Packel_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
@@ -237,7 +237,7 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
     
     def Holler_Packel_sample(self, ε, δ, seed=0, num_processes = 1):
-        num_samples = int(np.ceil(np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
+        num_samples = int(np.ceil(2 * np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Holler_Packel_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
@@ -301,7 +301,7 @@ class Causal_Explanations(object):
 
     def Banzhaf_sample(self, ε, δ, seed = 0, num_processes = 1):
         n = len(self.N)
-        num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        num_samples = int(2 * n * n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Banzhaf_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
@@ -331,7 +331,7 @@ class Causal_Explanations(object):
 
     def Shapley_Shubik_sample(self, ε, δ, seed = 0, num_processes = 1):
         n = len(self.N)
-        num_samples = int(n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
+        num_samples = int(2 * n * n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
             result = pool.map(self.Shapley_Shubik_sample_helper, [[int(np.ceil(num_samples/num_processes)), seed+i] for i in range(num_processes)])
