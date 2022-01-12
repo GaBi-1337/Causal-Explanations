@@ -7,7 +7,9 @@ from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import numpy as np
 
 class Mapper:
-    
+    '''
+    A class that maps categorical values to either one hot encoded values (ohe) or label encoded values (le)
+    '''
     def __init__(self, data):
         self.Data = data
         self.columns = sorted(data.columns)
@@ -35,6 +37,14 @@ class Mapper:
         del self.newData['temp']
 
     def get_data(self, X=None, Y=None, N=None):
+        '''
+        This function returns the tranformed dataset
+        
+        Input:
+            - X: The columns needed; needs a list of values
+            - Y: The column that will act as Y values; needs the column index of the Y value
+            - N: Number of points in the data set; an int between 0 to size of dataset
+        '''
         if X == None or Y == None:
             return np.array(self.newData, dtype=int) if N == None else np.array(self.newData, dtype=int)[: N]
         else:
@@ -53,16 +63,29 @@ class Mapper:
             return np.array(newData, dtype=int)
     
     def ohe_transform(self, label, column):
+        '''
+        Tranforms a categorical value to its ohe value
+        '''
         for value in self.mappings[column]:
             if value[0] == label:
                 return value[1]
 
     def le_transform(self, label, column):
+        '''
+        Tranforms a categorical value to its le value
+        '''
         for value in self.mappings[column]:
             if value[0] == label:
                 return value[2]
     
-    def point_transform(self, vector, X=None, Y=None):        
+    def point_transform(self, vector, X=None, Y=None):
+        '''
+        Tranforms a whole point to ohe values for X columns and le values for the Y column
+        Input:
+            - vector: vector intended to be transformed
+            - X: The columns needed; needs a list of values
+            - Y: The column that will act as Y values; needs the column index of the Y value
+        '''        
         newPoint = []
         idx = 0
         for col in self.columns[: -1]:
@@ -77,16 +100,25 @@ class Mapper:
         return np.array(np.array(newPoint, dtype=float), dtype=int)
     
     def ohe_inverse(self, vector, column):
+        '''
+        Inverses a ohe value to its categorical value
+        '''
         for value in self.mappings[column]:
             if np.array_equal(value[1], vector):
                 return value[0]
     
     def le_inverse(self, label, column):
+        '''
+        Inverses a le value to its categorical value
+        '''
         for value in self.mappings[column]:
             if value[2] == label:
                 return value[0]
     
     def point_inverse(self, vector, y_present=False):
+        '''
+        Inverses a whole point to its original self
+        '''
         newPoint = []
         offset = 0 
         for col in self.columns[: -1]:
@@ -102,8 +134,17 @@ class Mapper:
 
 
 class Causal_Explanations(object):
-
+    '''
+    A class for causal model explanations
+    '''
     def __init__(self, model, poi, mapper, baselines):
+        '''
+        Input:
+            - model: A black-box model
+            - poi: A point of interest whose outcome needs explaining 
+            - mapper: An object of type Mapper that converts between actual values to ohe and le values
+            - baselines: A set of feasible actions that can be taken to change the outcome of the poi
+        '''
         self.model = model
         self.poi = poi
         self.N = set(np.arange(poi.shape[0]))
@@ -115,6 +156,9 @@ class Causal_Explanations(object):
         self.baselines = baselines
     
     def value(self, S):
+        '''
+        Computes the power of the set S
+        '''
         if (str_S := np.array2string(S, separator='')[1:-1]) in self.value_cache:
             return self.value_cache[str_S]
         for point in self.baselines:
@@ -126,6 +170,9 @@ class Causal_Explanations(object):
         return 0
 
     def _critical_features(self, S):
+        '''
+        Returns the set of critical features in S
+        '''
         if (str_S := np.array2string(S, separator='')[1:-1]) in self.critical_features_cache:
             return self.critical_features_cache[str_S]
         χ = np.zeros(len(self.N), dtype=int)
@@ -180,6 +227,9 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
 
     def Johnston_sample(self, ε, δ, seed = 0, num_processes = 1):
+        '''
+        Sampling Algorithm for the Johnston Index
+        '''
         num_samples = int(np.ceil(2 * np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
@@ -187,6 +237,9 @@ class Causal_Explanations(object):
         return np.mean(result, axis = 0)
     
     def Johnston_index(self):
+        '''
+        Actual Algorithm for the Johnston Index
+        '''
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
         for subset in power_set:
@@ -209,6 +262,9 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
 
     def Deegan_Packel_sample(self, ε, δ, seed=0, num_processes = 1):
+        '''
+        Sampling Algorithm for the Deegan Packel Index
+        '''
         num_samples = int(np.ceil(2 * np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
@@ -216,6 +272,9 @@ class Causal_Explanations(object):
         return np.mean(result, axis = 0)
     
     def Deegan_Packel_index(self):
+        '''
+        Actual Algorithm for the Deegan Packel Index
+        '''
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
         for subset in power_set:
@@ -237,6 +296,9 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
     
     def Holler_Packel_sample(self, ε, δ, seed=0, num_processes = 1):
+        '''
+        Sampling Algorithm for the Holler Packel Index
+        '''
         num_samples = int(np.ceil(2 * np.log(2 * len(self.N) / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
         with mp.Pool(processes = num_processes) as pool:
@@ -244,6 +306,9 @@ class Causal_Explanations(object):
         return np.mean(result, axis = 0)
     
     def Holler_Packel_index(self):
+        '''
+        Actual Algorithm for the Holler Packel Index
+        '''
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
         for subset in power_set:
@@ -267,6 +332,9 @@ class Causal_Explanations(object):
         return unbiased_estimate
 
     def Responsibility_sample(self, ε, δ, seed=0, num_processes = 1):
+        '''
+        Sampling Algorithm for the Responsibility Index
+        '''
         num_samples = int(np.ceil((np.log(1 / ε) + np.log(len(self.N) / δ)) / ε))
         np.random.seed(seed)            
         with mp.Pool(processes = num_processes) as pool:
@@ -274,6 +342,9 @@ class Causal_Explanations(object):
         return np.max(result, axis = 0)
     
     def Responsibility_index(self):
+        '''
+        Actual Algorithm for the Responsibility Index
+        '''
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
         for subset in power_set:
@@ -300,6 +371,9 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
 
     def Banzhaf_sample(self, ε, δ, seed = 0, num_processes = 1):
+        '''
+        Sampling Algorithm for the Banzhaf Index
+        '''
         n = len(self.N)
         num_samples = int(2 * n * n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
@@ -308,6 +382,9 @@ class Causal_Explanations(object):
         return np.mean(result, axis = 0)
     
     def Banzhaf_index(self):
+        '''
+        Actual Algorithm for the Banzhaf Index
+        '''
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
         for subset in power_set:
@@ -330,6 +407,9 @@ class Causal_Explanations(object):
         return unbiased_estimate / num_samples
 
     def Shapley_Shubik_sample(self, ε, δ, seed = 0, num_processes = 1):
+        '''
+        Sampling Algorithm for the Shapley Shubik Index
+        '''
         n = len(self.N)
         num_samples = int(2 * n * n * np.ceil(np.log(2 * n / δ) / (np.power(ε, 2))))
         np.random.seed(seed)
@@ -338,6 +418,9 @@ class Causal_Explanations(object):
         return np.mean(result, axis = 0)
     
     def Shapley_Shubik_index(self):
+        '''
+        Actual Algorithm for the Shapley Shubik Index
+        '''
         unbiased_estimate = np.zeros(len(self.N))
         power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
         n = len(self.N)
