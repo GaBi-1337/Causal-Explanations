@@ -59,9 +59,19 @@ def main():
     data = pd.concat([train, test], ignore_index=True)
     data = data.rename(columns={key: value for value, key in enumerate(data.columns)})
     mapr = Mapper(data)
+    data = mapr.get_data()
+    X = data[:, : -1]
+    Y = data[:, -1]
+    X_trn, X_tst, Y_trn, Y_tst = train_test_split(X, Y, test_size=0.333, shuffle=False)
+    
+    # Create model
+    model = sklearn.tree.DecisionTreeClassifier(max_depth = 5, random_state = 0).fit(X_trn, Y_trn)
+    print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
+
 
 
     # Create Baselines
+
     baselines_0 = []
     for age in [20, 30, 85]:
         for ms in [' Never-married', ' Married-civ-spouse']:
@@ -72,6 +82,7 @@ def main():
                             baselines_0.append(baseline)
     baselines_0 = np.array(baselines_0)
 
+    # Create baseline for positive outcomes
     baselines_1 = []
     for age in [20, 30, 85]:
         for ms in [' Never-married', ' Married-civ-spouse']:
@@ -90,10 +101,15 @@ def main():
     model = sklearn.tree.DecisionTreeClassifier(max_depth = 5, random_state = 0).fit(X_trn, Y_trn)
     print(model.score(X_trn, Y_trn), model.score(X_tst, Y_tst))
 
+
+    # Dictionary for index computations
     index_values = {'JI': None, 'DPI': None, 'HPI': None, 'RI': None, 'BI': None, 'SI': None}
+
+    #open files to write computations
     key_pairs = list(combinations(index_values.keys(), 2))
     files = [open('rankings/' + pair[0] + '_' + pair[1] + '.txt', 'w') for pair in key_pairs]
     ktfiles = [open('scores/' + pair[0] + '_' + pair[1] + '.txt', 'w') for pair in key_pairs]
+
     JI_file = open('nesuf_scores/JI.txt', 'w')
     DPI_file = open('nesuf_scores/DPI.txt', 'w')
     HPI_file = open('nesuf_scores/HPI.txt', 'w')
@@ -101,14 +117,11 @@ def main():
     BI_file = open('nesuf_scores/BI.txt', 'w')
     SI_file = open('nesuf_scores/SI.txt', 'w')
     BEST_file = open('nesuf_scores/BEST.txt', 'w')
+
     np.random.seed(0)
     np.random.shuffle(X_tst)
     
-    count = 0
     for point in X_tst[:1000]:
-        print(count, end = '\r')
-        count += 1
-
         exp = Causal_Explanations(model, poi:=mapr.point_inverse(point), mapr, baselines_0 if (prediction:=model.predict(point.reshape(1, -1))) == 0 else baselines_1)
         n = len(poi)
         k1n, k1s, k2n, k2s, k3n, k3s, k5n, k5s = exp.Test_index()
@@ -244,6 +257,7 @@ def main():
 
     for file in files: file.close()
     for file in ktfiles: file.close()
+    for file in nsfiles: nsfiles[file].close()
     
 if __name__ == "__main__":
     main()

@@ -9,3 +9,4 @@ To explain the decision of a point of interest by a black-box model:
   - A power index of choice needs to be called to get the explanations. Moreover, each power index has a sampling version as well. These sampling versions need an additional two parameters: ε and δ. Where ε is the deviation of the approximated computations from the actual and δ is the probability that the approximated computation is outside of this deviation. These two parameters are used to calculate the required number of samples. 
 
 An example usage can be seen in the adulexplain.py file.
+
