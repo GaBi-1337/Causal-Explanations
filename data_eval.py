@@ -5,8 +5,8 @@ files = ['BI_SI.txt', 'DPI_BI.txt', 'DPI_HPI.txt', 'DPI_RI.txt', 'DPI_SI.txt', '
 for file in files:
 	f = open('scores/'+file, 'r')
 	y = f.readlines()
-	y = [float(item) for item in y]
+	y = [[float(item) for item in line.split()] for line in y]
 	print(file)
-	print("mean = %f" % (np.mean(y)))
-	print("std = %f" % (np.std(y)))
-	print("min = %f" % (np.min(y)))
+	print("mean = ", (np.mean(y, axis = 0)))
+	print("std = ", (np.std(y, axis = 0)))
+	print("min = ", (np.min(y, axis = 0)))

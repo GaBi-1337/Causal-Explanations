@@ -434,3 +434,22 @@ class Causal_Explanations(object):
                     if self._is_quasi_minimal(S, i):
                         unbiased_estimate[i] += addend
         return unbiased_estimate
+
+    def Test_index(self):
+        n = len(self.N)
+        unbiased_estimate = np.zeros(len(self.N))
+        power_set = set(chain.from_iterable(combinations(self.N, r) for r in range(len(self.N)+1)))
+        max_val = [0]*(n+1)
+        min_val = [1]*(n+1)
+        for subset in power_set:
+            S = np.zeros(len(self.N))
+            S[list(subset)] = 1
+            vos = self.value(S)
+            if(vos == 1):
+                max_val[int(np.sum(S))] = 1
+            if(vos == 0):
+                min_val[int(np.sum(S))] = 0
+
+        return max_val[1], 1 - min_val[n - 1], max_val[2], 1 - min_val[n - 2], max_val[3], 1 - min_val[n - 3], max_val[5], 1 - min_val[n - 5]
+
+
