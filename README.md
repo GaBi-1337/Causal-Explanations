@@ -16,23 +16,17 @@ Once the power index is called, a subset S is then picked from the power set of 
 ### Indices that Aggregate Minimal Causes
 A set of causes S is minimal if all features in the set are critical
 
-#### Responsibility index
-For this index a feature’s importance is higher if the minimal cause the feature appears is smaller.
+  - Responsibility index: For this index a feature’s importance is higher if the minimal cause the feature appears is smaller.
 
-#### Holler-Packel index
-For this index a feature’s importance is higher if a feature appears in more minimal causes.
+  - Holler-Packel index: For this index a feature’s importance is higher if a feature appears in more minimal causes.
 
-#### Deegan-Packel index
-For this index a feature’s importance is determined by both the size and number of minimal causes the feature appears in.
+  - Deegan-Packel index: For this index a feature’s importance is determined by both the size and number of minimal causes the feature appears in.
 
 ### Indices that Aggregate Minimal Causes
 A set of causes S is quasi-minimal if at least one feature is critical.
 
-#### Shapley-Shubik index
-For this index each feature that is critical in S is assigned a weight of *(|S| - 1)(n - |S|) / n!*
+  - Shapley-Shubik index: For this index each feature that is critical in S is assigned a weight of *(|S| - 1)(n - |S|) / n!*
 
-#### Banzhaf index
-For this index a feature’s importance is higher if a feature appears in more quasi-minimal causes and is critical in that set.
+  - Banzhaf index: For this index a feature’s importance is higher if a feature appears in more quasi-minimal causes and is critical in that set.
 
-#### Johnston index
-For this index a feature’s importance is higher if the quasi-minimal cause the feature appears is smaller.
+  - Johnston index: For this index a feature’s importance is higher if the quasi-minimal cause the feature appears is smaller.
