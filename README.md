@@ -10,3 +10,5 @@ To explain the decision of a point of interest by a black-box model:
 
 An example usage can be seen in the example.py file.
 
+## How it works
+Once the power index is called, a subset S is then picked from the power set of the features (in the case of exact computations) or from the randomly sampled sets (in the case of sampling versions). This set S is used to pick the features from the list of baselines that have the opposite outcome. The value function is then used to determine the critical features of the set S; a feature is critical in S if removing that feature from S causes the value function to change i.e. a feature *i* is critical if *|v(S) - v(S \ i) |= 1*.
