@@ -29,7 +29,7 @@ For this index a feature’s importance is determined by both the size and numbe
 A set of causes S is quasi-minimal if at least one feature is critical.
 
 #### Shapley-Shubik index
-For this index a feature
+For this index each feature that is critical in S is assigned a weight of *(|S| - 1)(n - |S|) / n!*
 
 #### Banzhaf index
 For this index a feature’s importance is higher if a feature appears in more quasi-minimal causes and is critical in that set.
