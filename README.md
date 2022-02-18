@@ -12,3 +12,27 @@ An example usage can be seen in the example.py file.
 
 ## How it works
 Once the power index is called, a subset S is then picked from the power set of the features (in the case of exact computations) or from the randomly sampled sets (in the case of sampling versions). This set S is used to pick the features from the list of baselines that have the opposite outcome. The value function is then used to determine the critical features of the set S; a feature is critical in S if removing that feature from S causes the value function to change i.e. a feature *i* is critical if *|v(S) - v(S \ i) |= 1*.
+
+### Indices that Aggregate Minimal Causes
+A set of causes S is minimal if all features in the set are critical
+
+#### Responsibility index
+For this index a feature’s importance is higher if the minimal cause the feature appears is smaller.
+
+#### Holler-Packel index
+For this index a feature’s importance is higher if a feature appears in more minimal causes.
+
+#### Deegan-Packel index
+For this index a feature’s importance is determined by both the size and number of minimal causes the feature appears in.
+
+### Indices that Aggregate Minimal Causes
+A set of causes S is quasi-minimal if at least one feature is critical.
+
+#### Shapley-Shubik index
+For this index a feature
+
+#### Banzhaf index
+For this index a feature’s importance is higher if a feature appears in more quasi-minimal causes and is critical in that set.
+
+#### Johnston index
+For this index a feature’s importance is higher if the quasi-minimal cause the feature appears is smaller.
