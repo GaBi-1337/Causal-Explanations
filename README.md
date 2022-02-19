@@ -1,5 +1,5 @@
 # Explaining The Decisions of Black-Box Classifiers by Aggregating Causes
-This repository contains code for the paper "Model Explanations via the Axiomatic Causal Lens"
+This repository contains code for the paper [Model Explanations via the Axiomatic Causal Lens](https://arxiv.org/abs/2109.03890) by Gagan Biradar, Vignesh Viswanathan and Yair Zick.
 
 ## Usage
 To explain the decision of a point of interest by a black-box model:
