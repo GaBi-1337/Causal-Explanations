@@ -22,7 +22,7 @@ A set of causes S is minimal if all features in the set are critical
 
   - Deegan-Packel index: For this index a feature’s importance is determined by both the size and number of minimal causes the feature appears in.
 
-### Indices that Aggregate Minimal Causes
+### Indices that Aggregate Qusai-Minimal Causes
 A set of causes S is quasi-minimal if at least one feature is critical.
 
   - Shapley-Shubik index: For this index each feature that is critical in S is assigned a weight of *(|S| - 1)(n - |S|) / n!*
